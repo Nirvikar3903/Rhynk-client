@@ -1,118 +1,119 @@
 # Testing & Quality Assurance
 
-## Testing Stack
-- **Unit Testing**: React Testing Library + Jest
-- **E2E Testing**: Cypress or Playwright (recommended)
-- **Accessibility Testing**: axe-core + jest-axe
+## No test runner is configured yet
+
+**This entire file is aspirational guidance for if/when a test runner is
+added.** `package.json` has no Vitest/Jest, no `@testing-library/react`, no
+`test` script — nothing here currently runs. Don't imply to a teammate (or
+in a PR) that these tests exist or pass today; treat this as the intended
+shape for test code once a runner (Vitest is the natural fit for a Vite
+project) is deliberately added, not as documentation of current behavior.
+
+## Target Testing Stack (once adopted)
+- **Unit Testing**: React Testing Library + Vitest (or Jest)
+- **E2E Testing**: Playwright or Cypress (recommended)
+- **Accessibility Testing**: axe-core + `jest-axe`/`vitest-axe`
 - **Visual Testing**: Storybook (optional)
-- **Auto Test Generation**: Pre-commit hooks for dynamic test creation
 
 ## React Testing Library Patterns
 
 ### Component Testing
 ```javascript
-// src/components/__tests__/FundCard.test.jsx
+// src/components/messages/__tests__/MessageBubble.test.jsx
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import FundCard from '../FundCard'
+import MessageBubble from '../MessageBubble'
 
-const mockFund = {
+const mockMessage = {
   id: '1',
-  name: 'HDFC Equity Fund',
-  nav: 150.25,
-  category: 'Equity',
-  riskLevel: 'High'
+  text: 'Hey, check out this track!',
+  senderId: 'user-1',
+  formattedTime: '10:32 AM'
 }
 
-describe('FundCard', () => {
-  it('renders fund information correctly', () => {
-    render(<FundCard fund={mockFund} />)
-    
-    expect(screen.getByText('HDFC Equity Fund')).toBeInTheDocument()
-    expect(screen.getByText('NAV: ₹150.25')).toBeInTheDocument()
-    expect(screen.getByText('Equity')).toBeInTheDocument()
+describe('MessageBubble', () => {
+  it('renders message content correctly', () => {
+    render(<MessageBubble message={mockMessage} onReact={() => {}} />)
+
+    expect(screen.getByText('Hey, check out this track!')).toBeInTheDocument()
+    expect(screen.getByText('10:32 AM')).toBeInTheDocument()
   })
 
-  it('calls onSelect when clicked', async () => {
+  it('calls onReact when clicked', async () => {
     const user = userEvent.setup()
-    const mockOnSelect = jest.fn()
-    
-    render(<FundCard fund={mockFund} onSelect={mockOnSelect} />)
-    
+    const mockOnReact = vi.fn()
+
+    render(<MessageBubble message={mockMessage} onReact={mockOnReact} />)
+
     await user.click(screen.getByRole('button'))
-    expect(mockOnSelect).toHaveBeenCalledWith('1')
+    expect(mockOnReact).toHaveBeenCalledWith('1')
   })
 
-  it('shows selected state when isSelected is true', () => {
-    render(<FundCard fund={mockFund} isSelected={true} />)
-    
-    const card = screen.getByRole('button')
-    expect(card).toHaveStyle('border: 2px solid #1976d2')
+  it('applies own-message styling when isOwnMessage is true', () => {
+    render(<MessageBubble message={mockMessage} onReact={() => {}} isOwnMessage />)
+
+    const bubble = screen.getByRole('button')
+    expect(bubble).toHaveStyle('align-self: flex-end')
   })
 })
 ```
 
 ### Form Testing
 ```javascript
-// src/components/__tests__/InvestmentForm.test.jsx
+// src/components/auth/__tests__/LoginForm.test.jsx
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import InvestmentForm from '../InvestmentForm'
+import LoginForm from '../LoginForm'
 
-describe('InvestmentForm', () => {
+describe('LoginForm', () => {
   it('validates required fields', async () => {
     const user = userEvent.setup()
-    const mockSubmit = jest.fn()
-    
-    render(<InvestmentForm onSubmit={mockSubmit} />)
-    
-    const submitButton = screen.getByRole('button', { name: /create investment/i })
+    const mockSubmit = vi.fn()
+
+    render(<LoginForm onSubmit={mockSubmit} />)
+
+    const submitButton = screen.getByRole('button', { name: /log in/i })
     await user.click(submitButton)
-    
-    expect(screen.getByText('Investment amount is required')).toBeInTheDocument()
-    expect(screen.getByText('Duration is required')).toBeInTheDocument()
+
+    expect(screen.getByText('Email is required')).toBeInTheDocument()
+    expect(screen.getByText('Password is required')).toBeInTheDocument()
     expect(mockSubmit).not.toHaveBeenCalled()
   })
 
-  it('submits form with valid data', async () => {
+  it('submits form with valid credentials', async () => {
     const user = userEvent.setup()
-    const mockSubmit = jest.fn()
-    
-    render(<InvestmentForm onSubmit={mockSubmit} />)
-    
-    await user.type(screen.getByLabelText(/investment amount/i), '10000')
-    await user.type(screen.getByLabelText(/duration/i), '12')
-    await user.selectOptions(screen.getByLabelText(/risk profile/i), 'moderate')
-    
-    const submitButton = screen.getByRole('button', { name: /create investment/i })
-    await user.click(submitButton)
-    
+    const mockSubmit = vi.fn()
+
+    render(<LoginForm onSubmit={mockSubmit} />)
+
+    await user.type(screen.getByLabelText(/email/i), 'user@rhynk.app')
+    await user.type(screen.getByLabelText(/password/i), 'hunter2hunter2')
+
+    await user.click(screen.getByRole('button', { name: /log in/i }))
+
     await waitFor(() => {
       expect(mockSubmit).toHaveBeenCalledWith({
-        amount: 10000,
-        duration: 12,
-        riskProfile: 'moderate',
-        fundId: '',
-        startDate: expect.any(String)
+        email: 'user@rhynk.app',
+        password: 'hunter2hunter2'
       })
     })
   })
 
   it('shows loading state during submission', async () => {
     const user = userEvent.setup()
-    const mockSubmit = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)))
-    
-    render(<InvestmentForm onSubmit={mockSubmit} />)
-    
-    await user.type(screen.getByLabelText(/investment amount/i), '10000')
-    await user.type(screen.getByLabelText(/duration/i), '12')
-    
-    const submitButton = screen.getByRole('button', { name: /create investment/i })
+    const mockSubmit = vi.fn(() => new Promise(resolve => setTimeout(resolve, 100)))
+
+    render(<LoginForm onSubmit={mockSubmit} />)
+
+    await user.type(screen.getByLabelText(/email/i), 'user@rhynk.app')
+    await user.type(screen.getByLabelText(/password/i), 'hunter2hunter2')
+
+    const submitButton = screen.getByRole('button', { name: /log in/i })
     await user.click(submitButton)
-    
-    expect(screen.getByText('Processing...')).toBeInTheDocument()
+
+    expect(screen.getByText('Logging in...')).toBeInTheDocument()
     expect(submitButton).toBeDisabled()
   })
 })
@@ -120,46 +121,25 @@ describe('InvestmentForm', () => {
 
 ### Custom Hook Testing
 ```javascript
-// src/hooks/__tests__/usePortfolio.test.js
-import { renderHook, act } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import { usePortfolio } from '../usePortfolio'
+// src/hooks/__tests__/useRoomSync.test.js
+import { renderHook } from '@testing-library/react'
+import { useRoomSync } from '../useRoomSync'
 
-const createMockStore = (initialState = {}) => {
-  return configureStore({
-    reducer: {
-      investment: (state = initialState, action) => state
-    }
-  })
-}
+const createMockSocket = () => ({
+  emit: vi.fn(),
+  on: vi.fn(),
+  off: vi.fn()
+})
 
-describe('usePortfolio', () => {
-  it('calculates portfolio value correctly', () => {
-    const mockInvestments = [
-      { id: '1', units: 100, averagePrice: 50 },
-      { id: '2', units: 200, averagePrice: 25 }
-    ]
-    
-    const mockMarketData = {
-      '1': { nav: 60 },
-      '2': { nav: 30 }
-    }
-    
-    const store = createMockStore({
-      investments: mockInvestments,
-      marketData: mockMarketData
-    })
-    
-    const wrapper = ({ children }) => (
-      <Provider store={store}>{children}</Provider>
+describe('useRoomSync', () => {
+  it('emits a sync_request immediately on mount', () => {
+    const socket = createMockSocket()
+    renderHook(() => useRoomSync('room-1', socket))
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      'room:sync_request',
+      expect.objectContaining({ t1: expect.any(Number) })
     )
-    
-    const { result } = renderHook(() => usePortfolio(), { wrapper })
-    
-    expect(result.current.totalValue).toBe(12000) // (100 * 60) + (200 * 30)
-    expect(result.current.totalGain).toBe(2000) // 12000 - 10000
-    expect(result.current.totalGainPercentage).toBe(20) // (2000 / 10000) * 100
   })
 })
 ```
@@ -168,85 +148,88 @@ describe('usePortfolio', () => {
 
 ### Slice Testing
 ```javascript
-// src/store/slices/__tests__/investmentSlice.test.js
-import investmentReducer, { 
-  setFunds, 
-  setSelectedFund, 
-  setLoading 
-} from '../investmentSlice'
+// src/store/slices/__tests__/auth.slice.test.js
+import authReducer, { setSession, clearSession } from '../auth.slice'
 
-describe('investmentSlice', () => {
+describe('auth.slice', () => {
   const initialState = {
-    funds: [],
-    selectedFund: null,
-    loading: false,
-    error: null
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isAuthenticated: false
   }
 
   it('should handle initial state', () => {
-    expect(investmentReducer(undefined, {})).toEqual(initialState)
+    expect(authReducer(undefined, {})).toEqual(initialState)
   })
 
-  it('should handle setFunds', () => {
-    const funds = [
-      { id: '1', name: 'Fund 1', nav: 100 },
-      { id: '2', name: 'Fund 2', nav: 200 }
-    ]
-    
-    const actual = investmentReducer(initialState, setFunds(funds))
-    expect(actual.funds).toEqual(funds)
+  it('should handle setSession', () => {
+    const payload = {
+      user: { id: '1', username: 'demo' },
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token'
+    }
+
+    const actual = authReducer(initialState, setSession(payload))
+    expect(actual.user).toEqual(payload.user)
+    expect(actual.isAuthenticated).toBe(true)
   })
 
-  it('should handle setSelectedFund', () => {
-    const fund = { id: '1', name: 'Fund 1', nav: 100 }
-    const actual = investmentReducer(initialState, setSelectedFund(fund))
-    expect(actual.selectedFund).toEqual(fund)
-  })
+  it('should handle clearSession', () => {
+    const loggedInState = {
+      user: { id: '1' },
+      accessToken: 'token',
+      refreshToken: 'refresh',
+      isAuthenticated: true
+    }
 
-  it('should handle setLoading', () => {
-    const actual = investmentReducer(initialState, setLoading(true))
-    expect(actual.loading).toBe(true)
+    const actual = authReducer(loggedInState, clearSession())
+    expect(actual).toEqual(initialState)
   })
 })
 ```
 
 ### RTK Query Testing
 ```javascript
-// src/store/api/__tests__/investmentApi.test.js
+// src/store/api/__tests__/auth.apislice.test.js
 import { renderHook, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { investmentApi } from '../investmentApi'
+import { authApi } from '../auth.apislice'
 
 const createTestStore = () => {
   return configureStore({
     reducer: {
-      [investmentApi.reducerPath]: investmentApi.reducer
+      [authApi.reducerPath]: authApi.reducer
     },
     middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat(investmentApi.middleware)
+      getDefaultMiddleware().concat(authApi.middleware)
   })
 }
 
-describe('investmentApi', () => {
+describe('authApi', () => {
   let store
 
   beforeEach(() => {
     store = createTestStore()
   })
 
-  it('should fetch funds', async () => {
-    const wrapper = ({ children }) => (
-      <Provider store={store}>{children}</Provider>
-    )
+  it('should call login and resolve with a session', async () => {
+    const wrapper = ({ children }) => <Provider store={store}>{children}</Provider>
 
-    const { result } = renderHook(() => investmentApi.useGetFundsQuery(), { wrapper })
+    const { result } = renderHook(() => authApi.useLoginMutation(), { wrapper })
+    const [login] = result.current
 
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
+    await login({
+      email: 'user@rhynk.app',
+      password: 'hunter2hunter2',
+      deviceId: 'device-1',
+      deviceType: 'WEB'
     })
 
-    expect(result.current.data).toBeDefined()
+    await waitFor(() => {
+      expect(result.current[1].isSuccess).toBe(true)
+    })
   })
 })
 ```
@@ -257,87 +240,51 @@ describe('investmentApi', () => {
 ```javascript
 // src/setupTests.js
 import { toHaveNoViolations } from 'jest-axe'
-import 'jest-axe/extend-expect'
 
 expect.extend(toHaveNoViolations)
 
-// src/components/__tests__/Accessibility.test.jsx
+// src/components/messages/__tests__/MessageBubble.a11y.test.jsx
 import React from 'react'
 import { render } from '@testing-library/react'
-import { axe, toHaveNoViolations } from 'jest-axe'
-import FundCard from '../FundCard'
+import { axe } from 'jest-axe'
+import MessageBubble from '../MessageBubble'
 
-expect.extend(toHaveNoViolations)
-
-describe('FundCard Accessibility', () => {
+describe('MessageBubble accessibility', () => {
   it('should not have accessibility violations', async () => {
     const { container } = render(
-      <FundCard 
-        fund={{ id: '1', name: 'Test Fund', nav: 100 }}
-        onSelect={() => {}}
+      <MessageBubble
+        message={{ id: '1', text: 'Test message', formattedTime: '10:00 AM' }}
+        onReact={() => {}}
       />
     )
-    
+
     const results = await axe(container)
     expect(results).toHaveNoViolations()
-  })
-
-  it('should have proper ARIA labels', () => {
-    render(
-      <FundCard 
-        fund={{ id: '1', name: 'Test Fund', nav: 100 }}
-        onSelect={() => {}}
-      />
-    )
-    
-    expect(screen.getByRole('button')).toHaveAttribute('aria-label')
   })
 })
 ```
 
 ### Keyboard Navigation Testing
 ```javascript
-// src/components/__tests__/KeyboardNavigation.test.jsx
+// src/components/messages/__tests__/MessageList.keyboard.test.jsx
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import FundList from '../FundList'
+import MessageList from '../MessageList'
 
-describe('FundList Keyboard Navigation', () => {
-  it('should navigate through funds with arrow keys', async () => {
+describe('MessageList keyboard navigation', () => {
+  it('activates a message with Enter key', async () => {
     const user = userEvent.setup()
-    const mockFunds = [
-      { id: '1', name: 'Fund 1', nav: 100 },
-      { id: '2', name: 'Fund 2', nav: 200 }
-    ]
-    
-    render(<FundList funds={mockFunds} />)
-    
-    const firstFund = screen.getByRole('button', { name: /fund 1/i })
-    const secondFund = screen.getByRole('button', { name: /fund 2/i })
-    
-    firstFund.focus()
-    expect(firstFund).toHaveFocus()
-    
-    await user.keyboard('{ArrowDown}')
-    expect(secondFund).toHaveFocus()
-    
-    await user.keyboard('{ArrowUp}')
-    expect(firstFund).toHaveFocus()
-  })
+    const mockOnReact = vi.fn()
+    const mockMessage = { id: '1', text: 'Test message', formattedTime: '10:00 AM' }
 
-  it('should activate fund with Enter key', async () => {
-    const user = userEvent.setup()
-    const mockOnSelect = jest.fn()
-    const mockFund = { id: '1', name: 'Test Fund', nav: 100 }
-    
-    render(<FundCard fund={mockFund} onSelect={mockOnSelect} />)
-    
-    const fundCard = screen.getByRole('button')
-    fundCard.focus()
-    
+    render(<MessageList messages={[mockMessage]} onMessageReact={mockOnReact} />)
+
+    const message = screen.getByRole('button')
+    message.focus()
+
     await user.keyboard('{Enter}')
-    expect(mockOnSelect).toHaveBeenCalledWith('1')
+    expect(mockOnReact).toHaveBeenCalledWith('1')
   })
 })
 ```
@@ -346,11 +293,11 @@ describe('FundList Keyboard Navigation', () => {
 
 ### Error Boundary Component
 ```javascript
-// src/components/ErrorBoundary.jsx
+// src/components/common/ErrorBoundaryComponent.jsx
 import React from 'react'
 import { Alert, Button, Box } from '@mui/material'
 
-class ErrorBoundary extends React.Component {
+class ErrorBoundaryComponent extends React.Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -368,13 +315,8 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <Box p={4}>
-          <Alert severity="error">
-            Something went wrong. Please try again.
-          </Alert>
-          <Button 
-            onClick={() => this.setState({ hasError: false, error: null })}
-            sx={{ mt: 2 }}
-          >
+          <Alert severity="error">Something went wrong. Please try again.</Alert>
+          <Button onClick={() => this.setState({ hasError: false, error: null })} sx={{ mt: 2 }}>
             Try Again
           </Button>
         </Box>
@@ -385,16 +327,16 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-export default ErrorBoundary
+export default ErrorBoundaryComponent
 ```
 
 ### Error Boundary Testing
 ```javascript
-// src/components/__tests__/ErrorBoundary.test.jsx
+// src/components/common/__tests__/ErrorBoundaryComponent.test.jsx
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ErrorBoundary from '../ErrorBoundary'
+import ErrorBoundaryComponent from '../ErrorBoundaryComponent'
 
 const ThrowError = ({ shouldThrow }) => {
   if (shouldThrow) {
@@ -403,95 +345,56 @@ const ThrowError = ({ shouldThrow }) => {
   return <div>No error</div>
 }
 
-describe('ErrorBoundary', () => {
+describe('ErrorBoundaryComponent', () => {
   it('renders children when there is no error', () => {
     render(
-      <ErrorBoundary>
+      <ErrorBoundaryComponent>
         <ThrowError shouldThrow={false} />
-      </ErrorBoundary>
+      </ErrorBoundaryComponent>
     )
-    
+
     expect(screen.getByText('No error')).toBeInTheDocument()
   })
 
   it('renders error UI when there is an error', () => {
-    // Suppress console.error for this test
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    
-    render(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={true} />
-      </ErrorBoundary>
-    )
-    
-    expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
-    
-    consoleSpy.mockRestore()
-  })
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-  it('recovers from error when Try Again is clicked', async () => {
-    const user = userEvent.setup()
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    
-    const { rerender } = render(
-      <ErrorBoundary>
+    render(
+      <ErrorBoundaryComponent>
         <ThrowError shouldThrow={true} />
-      </ErrorBoundary>
+      </ErrorBoundaryComponent>
     )
-    
+
     expect(screen.getByText('Something went wrong. Please try again.')).toBeInTheDocument()
-    
-    const tryAgainButton = screen.getByRole('button', { name: /try again/i })
-    await user.click(tryAgainButton)
-    
-    // Rerender with no error
-    rerender(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={false} />
-      </ErrorBoundary>
-    )
-    
-    expect(screen.getByText('No error')).toBeInTheDocument()
-    
     consoleSpy.mockRestore()
   })
 })
 ```
 
-## Test Configuration
+## Test Configuration (once a runner is added)
 
-### Jest Configuration
+### Vitest Configuration
 ```javascript
-// jest.config.js
-module.exports = {
-  testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
-  moduleNameMapping: {
-    '^utils/(.*)$': '<rootDir>/src/utils/$1',
-    '^components/(.*)$': '<rootDir>/src/components/$1',
-    '^store/(.*)$': '<rootDir>/src/store/$1'
-  },
-  collectCoverageFrom: [
-    'src/**/*.{js,jsx}',
-    '!src/**/*.test.{js,jsx}',
-    '!src/setupTests.js',
-    '!src/index.js'
-  ],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
+// vitest.config.js
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.js'],
+    coverage: {
+      reporter: ['text', 'html'],
+      include: ['src/**/*.{js,jsx}']
     }
   }
-}
+})
 ```
 
 ### Test Utilities
 ```javascript
-// src/test-utils/index.js
+// src/test-utils/index.jsx
 import React from 'react'
 import { render } from '@testing-library/react'
 import { Provider } from 'react-redux'
@@ -503,7 +406,7 @@ import theme from '../theme'
 const createTestStore = (preloadedState = {}) => {
   return configureStore({
     reducer: {
-      // Add your reducers here
+      // Add reducers as they're written
     },
     preloadedState
   })
@@ -511,13 +414,11 @@ const createTestStore = (preloadedState = {}) => {
 
 const AllTheProviders = ({ children, store }) => {
   const testStore = store || createTestStore()
-  
+
   return (
     <Provider store={testStore}>
       <BrowserRouter>
-        <ThemeProvider theme={theme}>
-          {children}
-        </ThemeProvider>
+        <ThemeProvider theme={theme}>{children}</ThemeProvider>
       </BrowserRouter>
     </Provider>
   )
@@ -525,146 +426,11 @@ const AllTheProviders = ({ children, store }) => {
 
 const customRender = (ui, options = {}) => {
   const { store, ...renderOptions } = options
-  
-  const Wrapper = ({ children }) => (
-    <AllTheProviders store={store}>
-      {children}
-    </AllTheProviders>
-  )
-  
+  const Wrapper = ({ children }) => <AllTheProviders store={store}>{children}</AllTheProviders>
   return render(ui, { wrapper: Wrapper, ...renderOptions })
 }
 
 export * from '@testing-library/react'
 export { customRender as render }
 export { createTestStore }
-```
-
-## Auto Test Generation
-
-### Pre-commit Hook Setup
-```javascript
-// .husky/pre-commit
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Generate tests for modified files
-npm run generate-tests
-
-# Run tests
-npm test
-```
-
-### Test Generation Script
-```javascript
-// scripts/generate-tests.js
-const fs = require('fs')
-const path = require('path')
-const { execSync } = require('child_process')
-
-const generateTestForFile = (filePath) => {
-  const fileContent = fs.readFileSync(filePath, 'utf8')
-  const fileName = path.basename(filePath, path.extname(filePath))
-  const testDir = path.dirname(filePath).replace('src/', 'src/__tests__/')
-  const testFile = path.join(testDir, `${fileName}.test.jsx`)
-  
-  // Ensure test directory exists
-  if (!fs.existsSync(testDir)) {
-    fs.mkdirSync(testDir, { recursive: true })
-  }
-  
-  // Generate test content based on file type
-  let testContent = ''
-  
-  if (filePath.includes('.component.jsx')) {
-    testContent = generateComponentTest(fileName, fileContent)
-  } else if (filePath.includes('.container.jsx')) {
-    testContent = generateContainerTest(fileName, fileContent)
-  } else if (filePath.includes('.hook.js')) {
-    testContent = generateHookTest(fileName, fileContent)
-  } else if (filePath.includes('.slice.js')) {
-    testContent = generateSliceTest(fileName, fileContent)
-  }
-  
-  if (testContent && !fs.existsSync(testFile)) {
-    fs.writeFileSync(testFile, testContent)
-    console.log(`Generated test: ${testFile}`)
-  }
-}
-
-const generateComponentTest = (fileName, fileContent) => {
-  return `import React from 'react'
-import { render, screen } from '@testing-library/react'
-import ${fileName} from '../${fileName}'
-
-describe('${fileName}', () => {
-  it('renders without crashing', () => {
-    render(<${fileName} />)
-    expect(screen.getByRole('button')).toBeInTheDocument()
-  })
-  
-  it('handles props correctly', () => {
-    const mockProps = {
-      // Add test props here
-    }
-    render(<${fileName} {...mockProps} />)
-    // Add assertions here
-  })
-})`
-}
-
-const generateContainerTest = (fileName, fileContent) => {
-  return `import React from 'react'
-import { render, screen } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import ${fileName} from '../${fileName}'
-
-const createTestStore = () => {
-  return configureStore({
-    reducer: {
-      // Add reducers here
-    }
-  })
-}
-
-const TestWrapper = ({ children }) => {
-  const store = createTestStore()
-  return <Provider store={store}>{children}</Provider>
-}
-
-describe('${fileName}', () => {
-  it('renders without crashing', () => {
-    render(
-      <TestWrapper>
-        <${fileName} />
-      </TestWrapper>
-    )
-    expect(screen.getByText('${fileName}')).toBeInTheDocument()
-  })
-})`
-}
-
-// Run test generation
-const modifiedFiles = execSync('git diff --cached --name-only --diff-filter=ACMR', { encoding: 'utf8' })
-  .split('\n')
-  .filter(file => file.match(/\.(jsx?|js)$/) && file.startsWith('src/'))
-
-modifiedFiles.forEach(generateTestForFile)
-```
-
-### Package.json Scripts
-```json
-{
-  "scripts": {
-    "generate-tests": "node scripts/generate-tests.js",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "npm run generate-tests && npm test"
-    }
-  }
-}
 ```

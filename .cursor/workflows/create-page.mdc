@@ -3,255 +3,163 @@
 ## Page Creation Checklist
 
 ### 1. File Structure Pattern
-- **Page**: `src/pages/PageNamePage.jsx` (minimal, delegates to container)
-- **Container**: `src/containers/PageNameContainer.jsx` (business logic, API, Redux)
-- **Components**: `src/components/PageNameComponent.jsx` (UI only, props-based)
+- **Page**: `src/pages/PageNamePage.jsx` (minimal, delegates to a container)
+- **Container**: `src/features/containers/<domain>/PageNameContainer.jsx`
+  (business logic, RTK Query hooks, Redux connections — note this lives
+  under `features/containers/<domain>/`, **not** a top-level `src/containers/`
+  folder)
+- **Components**: `src/components/<domain>/ComponentName.jsx` (UI only,
+  props-based, rendered by the container)
 - **Route**: Register in `src/router/index.jsx`
 
 ### 2. Page Template
 ```javascript
-// src/pages/InvestmentPage.jsx
+// src/pages/ConversationsPage.jsx
 import React from 'react'
-import { InvestmentContainer } from 'containers/InvestmentContainer'
+import ConversationsContainer from 'features/containers/conversations/ConversationsContainer'
 
-const InvestmentPage = () => {
-  return <InvestmentContainer />
+const ConversationsPage = () => {
+  return <ConversationsContainer />
 }
 
-export default InvestmentPage
+export default ConversationsPage
 ```
 
 ### 3. Container Template
 ```javascript
-// src/containers/InvestmentContainer.jsx
-import React, { useState, useEffect } from 'react'
+// src/features/containers/conversations/ConversationsContainer.jsx
+import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { useGetFundsQuery, useCreateSIPOrderMutation } from 'store/api/investment.apislice'
-import { FundListComponent } from 'components/investment/FundListComponent'
-import { InvestmentFormComponent } from 'components/investment/InvestmentFormComponent'
-import { AppModalComponent } from 'components/mui/AppModalComponent'
-import { setSelectedFund } from 'store/slices/investment.slice'
+import { useGetConversationsQuery, useCreateConversationMutation } from 'store/api/conversations.apislice'
+import ConversationList from 'components/conversations/ConversationList'
+import NewConversationForm from 'components/conversations/NewConversationForm'
+import AppModalComponent from 'components/mui/AppModalComponent'
+import { setActiveConversationId } from 'store/slices/presence.slice'
 
 // Component scope
 const DEFAULT_PAGE_SIZE = 20
 
-const InvestmentContainer = () => {
+const ConversationsContainer = () => {
   // States, refs, selectors, RTK Query hooks
-  const [showForm, setShowForm] = useState(false)
-  const [selectedFundId, setSelectedFundId] = useState(null)
-  const [page, setPage] = useState(1)
-  
+  const [showNewConversationModal, setShowNewConversationModal] = useState(false)
+
   const dispatch = useDispatch()
-  const { data: funds, error, isLoading } = useGetFundsQuery({ page })
-  const [createSIPOrder, { isLoading: isSubmitting }] = useCreateSIPOrderMutation()
-  const selectedFund = useSelector(state => state.investment.selectedFund)
+  const { data: conversations, error, isLoading } = useGetConversationsQuery()
+  const [createConversation, { isLoading: isCreating }] = useCreateConversationMutation()
+  const activeConversationId = useSelector((state) => state.presence?.activeConversationId)
 
-  const handleFundSelect = (fundId) => {
-    setSelectedFundId(fundId)
-    const fund = funds?.find(f => f.id === fundId)
-    if (fund) {
-      dispatch(setSelectedFund(fund))
-      setShowForm(true)
-    }
+  const handleConversationSelect = (conversationId) => {
+    dispatch(setActiveConversationId(conversationId))
   }
 
-  const handleFormSubmit = async (formData) => {
+  const handleCreateConversation = async (formData) => {
     try {
-      await createSIPOrder({
-        fundId: selectedFundId,
-        ...formData
-      }).unwrap()
-      
-      setShowForm(false)
-      setSelectedFundId(null)
-      // Show success message
+      await createConversation(formData).unwrap()
+      setShowNewConversationModal(false)
     } catch (error) {
-      console.error('Failed to create SIP order:', error)
-      // Show error message
+      console.error('Failed to create conversation:', error)
     }
-  }
-
-  const handleCloseForm = () => {
-    setShowForm(false)
-    setSelectedFundId(null)
-    dispatch(setSelectedFund(null))
   }
 
   if (isLoading) {
-    return <div>Loading funds...</div>
+    return <div>Loading conversations…</div>
   }
 
   if (error) {
-    return <div>Error loading funds: {error.message}</div>
+    return <div>Error loading conversations: {error.message}</div>
   }
 
   return (
     <div>
-      <h1>Investment Options</h1>
-      
-      <FundList 
-        funds={funds || []}
-        onFundSelect={handleFundSelect}
+      <h1>Conversations</h1>
+
+      <ConversationList
+        conversations={conversations || []}
+        activeConversationId={activeConversationId}
+        onSelect={handleConversationSelect}
       />
-      
-      <AppModal
-        open={showForm}
-        onClose={handleCloseForm}
-        title="Create SIP Investment"
+
+      <AppModalComponent
+        open={showNewConversationModal}
+        onClose={() => setShowNewConversationModal(false)}
+        title="New Conversation"
       >
-        <InvestmentForm
-          onSubmit={handleFormSubmit}
-          loading={isSubmitting}
-          selectedFund={selectedFund}
+        <NewConversationForm
+          onSubmit={handleCreateConversation}
+          loading={isCreating}
         />
-      </AppModal>
+      </AppModalComponent>
     </div>
   )
 }
 
-export default InvestmentContainer
+export default ConversationsContainer
 ```
 
-### 4. Financial Page Examples
+### 4. Rhynk Page Examples
 
-#### Portfolio Page
+#### Music Room Page
 ```javascript
-// src/pages/PortfolioPage.jsx
+// src/pages/MusicRoomPage.jsx
 import React from 'react'
-import { PortfolioContainer } from 'containers/PortfolioContainer'
+import { useParams } from 'react-router-dom'
+import MusicRoomContainer from 'features/containers/music-rooms/MusicRoomContainer'
 
-const PortfolioPage = () => {
-  return <PortfolioContainer />
+const MusicRoomPage = () => {
+  const { roomId } = useParams()
+  return <MusicRoomContainer roomId={roomId} />
 }
 
-export default PortfolioPage
+export default MusicRoomPage
 ```
 
 ```javascript
-// src/containers/PortfolioContainer.jsx
-import React, { useState, useEffect } from 'react'
+// src/features/containers/music-rooms/MusicRoomContainer.jsx
+import React from 'react'
 import { useSelector } from 'react-redux'
-import { useGetPortfolioQuery } from 'store/api/investmentApi'
-import { PortfolioSummary } from 'components/portfolio/PortfolioSummary'
-import { PortfolioChart } from 'components/portfolio/PortfolioChart'
-import { InvestmentList } from 'components/portfolio/InvestmentList'
+import { useGetRoomQueueQuery } from 'store/api/musicRoom.apislice'
+import RoomMemberList from 'components/music-rooms/RoomMemberList'
+import SongQueue from 'components/music-rooms/SongQueue'
+import PlaybackControls from 'components/music-rooms/PlaybackControls'
 
-const PortfolioContainer = () => {
-  const [timeRange, setTimeRange] = useState('1Y')
-  
-  const { data: portfolio, isLoading, error } = useGetPortfolioQuery()
-  const user = useSelector(state => state.user.profile)
+const MusicRoomContainer = ({ roomId }) => {
+  const { data: queue, isLoading, error } = useGetRoomQueueQuery(roomId)
+  const currentUser = useSelector((state) => state.auth.user)
 
-  if (isLoading) return <div>Loading portfolio...</div>
+  if (isLoading) return <div>Loading room…</div>
   if (error) return <div>Error: {error.message}</div>
 
+  const isDj = queue?.djUserId === currentUser?.id
+
   return (
     <div>
-      <h1>Portfolio Overview</h1>
-      <p>Welcome back, {user?.firstName}</p>
-      
-      <PortfolioSummary 
-        portfolio={portfolio}
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-      />
-      
-      <PortfolioChart 
-        data={portfolio?.chartData}
-        timeRange={timeRange}
-      />
-      
-      <InvestmentList 
-        investments={portfolio?.investments}
-      />
+      <h1>Music Room</h1>
+
+      <RoomMemberList members={queue?.members || []} djUserId={queue?.djUserId} />
+
+      <SongQueue tracks={queue?.tracks || []} />
+
+      {/* DJ-only controls are hidden client-side for non-DJs, but the
+          server is the real enforcement boundary — see [[08-music-rooms]] */}
+      {isDj && <PlaybackControls roomId={roomId} />}
     </div>
   )
 }
 
-export default PortfolioContainer
+export default MusicRoomContainer
 ```
 
-#### KYC Page
+#### Profile Page
 ```javascript
-// src/pages/KYCPage.jsx
+// src/pages/ProfilePage.jsx
 import React from 'react'
-import { KYCContainer } from 'containers/KYCContainer'
+import ProfileContainer from 'features/containers/profile/ProfileContainer'
 
-const KYCPage = () => {
-  return <KYCContainer />
+const ProfilePage = () => {
+  return <ProfileContainer />
 }
 
-export default KYCPage
-```
-
-```javascript
-// src/containers/KYCContainer.jsx
-import React, { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import { kycSchema } from 'schemas/kycSchema'
-import { KYCForm } from 'components/kyc/KYCForm'
-import { DocumentUpload } from 'components/kyc/DocumentUpload'
-import { useCreateKYCMutation } from 'store/api/kycApi'
-
-const KYCContainer = () => {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [createKYC, { isLoading }] = useCreateKYCMutation()
-  
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    watch
-  } = useForm({
-    resolver: yupResolver(kycSchema),
-    mode: 'onChange'
-  })
-
-  const handleFormSubmit = async (data) => {
-    try {
-      await createKYC(data).unwrap()
-      setCurrentStep(3) // Success step
-    } catch (error) {
-      console.error('KYC submission failed:', error)
-    }
-  }
-
-  const nextStep = () => setCurrentStep(prev => prev + 1)
-  const prevStep = () => setCurrentStep(prev => prev - 1)
-
-  return (
-    <div>
-      <h1>Complete Your KYC</h1>
-      
-      {currentStep === 1 && (
-        <KYCForm
-          control={control}
-          errors={errors}
-          onNext={nextStep}
-          isValid={isValid}
-        />
-      )}
-      
-      {currentStep === 2 && (
-        <DocumentUpload
-          onBack={prevStep}
-          onSubmit={handleSubmit(handleFormSubmit)}
-          loading={isLoading}
-        />
-      )}
-      
-      {currentStep === 3 && (
-        <div>
-          <h2>KYC Submitted Successfully!</h2>
-          <p>Your documents are under review. You'll be notified once approved.</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export default KYCContainer
+export default ProfilePage
 ```
 
 ### 5. Route Registration
@@ -262,11 +170,10 @@ import { Routes, Route } from 'react-router-dom'
 import { Box, CircularProgress } from '@mui/material'
 
 // Lazy load pages
-const DashboardPage = lazy(() => import('pages/DashboardPage'))
-const InvestmentPage = lazy(() => import('pages/InvestmentPage'))
-const PortfolioPage = lazy(() => import('pages/PortfolioPage'))
-const KYCPage = lazy(() => import('pages/KYCPage'))
+const ConversationsPage = lazy(() => import('pages/ConversationsPage'))
+const MusicRoomPage = lazy(() => import('pages/MusicRoomPage'))
 const ProfilePage = lazy(() => import('pages/ProfilePage'))
+const LoginPage = lazy(() => import('pages/LoginPage'))
 
 const PageLoader = () => (
   <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -278,10 +185,9 @@ const AppRouter = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/investment" element={<InvestmentPage />} />
-        <Route path="/portfolio" element={<PortfolioPage />} />
-        <Route path="/kyc" element={<KYCPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/conversations" element={<ConversationsPage />} />
+        <Route path="/rooms/:roomId" element={<MusicRoomPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Routes>
     </Suspense>
@@ -291,21 +197,30 @@ const AppRouter = () => {
 export default AppRouter
 ```
 
+React Router v7 (`^7.18.1`) is installed — the `Routes`/`Route`/`lazy` pattern
+above is the current data-router-agnostic style; if the project later adopts
+v7's `createBrowserRouter`/loader-based routing, update this template
+accordingly rather than mixing both styles.
+
 ### 6. Page Requirements Checklist
 
 #### ✅ Page Component
-- [ ] Minimal component that delegates to container
+- [ ] Minimal component that delegates to a container
 - [ ] Single responsibility: route rendering
 - [ ] No business logic or state management
-- [ ] Use absolute imports
+- [ ] Use absolute imports once the alias is configured (not set up yet —
+      see the architecture rules)
 
 #### ✅ Container Component
+- [ ] Lives under `src/features/containers/<domain>/`, not a top-level
+      `containers/` folder
 - [ ] Contains all business logic
 - [ ] Manages state and API calls
 - [ ] Handles user interactions
-- [ ] Renders reusable components
+- [ ] Renders reusable components from `src/components/<domain>/`
 - [ ] Uses RTK Query for API calls
-- [ ] Uses Redux for state management
+- [ ] Uses Redux slices for client-owned state only (not server-response
+      caching — see the state-layer rules)
 
 #### ✅ Route Integration
 - [ ] Register route in `src/router/index.jsx`
@@ -313,61 +228,62 @@ export default AppRouter
 - [ ] Add proper loading states
 - [ ] Include error boundaries
 
-#### ✅ Financial App Specific
-- [ ] Include proper error handling
+#### ✅ Rhynk Specific
+- [ ] Include proper error handling for API/socket failures
 - [ ] Add loading states for API calls
-- [ ] Use financial data formatting utilities
 - [ ] Include mobile responsiveness with MUI breakpoints
-- [ ] Add proper validation
 - [ ] Use MUI SX prop for all styling
+- [ ] For music-room pages, don't build mid-session provider hot-swap or
+      derive playback position from anything but server sync broadcasts
+      (see [[08-music-rooms]])
 
 ### 7. Common Page Patterns
 
-#### List Pages (Funds, Transactions)
-- Display data in cards or tables
+#### List Pages (Conversations, Notifications)
+- Display data in lists or cards
 - Include search and filter functionality
-- Add pagination for large datasets
-- Include sorting options
+- Add pagination/cursor-based infinite scroll for large datasets
 
-#### Form Pages (KYC, Investment)
-- Multi-step forms with validation
+#### Form Pages (Login, Register, OTP Verification)
+- Multi-step flows with validation
 - Progress indicators
-- Save draft functionality
-- Clear error messaging
+- Clear error messaging mapped to server error codes
 
-#### Detail Pages (Fund Details, Transaction Details)
-- Display comprehensive information
-- Include related actions
-- Add sharing functionality
-- Include navigation breadcrumbs
+#### Detail Pages (Music Room, Conversation Thread)
+- Display comprehensive real-time state
+- Include related actions (DJ controls, message composer)
+- Include navigation back to the list
 
-#### Dashboard Pages (Portfolio, Analytics)
-- Summary cards with key metrics
-- Interactive charts and graphs
+#### Dashboard-style Pages (Profile, Notifications)
+- Summary cards with key info
 - Quick action buttons
-- Real-time data updates
+- Real-time data updates via sockets once wired up
 
-### 8. Testing Template
+### 8. Testing
+
+No test runner (Vitest/Jest) is configured in this repo yet — the template
+below is the intended shape once one is added, not something that runs today.
+
 ```javascript
-// src/pages/__tests__/InvestmentPage.test.jsx
+// src/pages/__tests__/ConversationsPage.test.jsx
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
-import InvestmentPage from '../InvestmentPage'
+import ConversationsPage from '../ConversationsPage'
 
 const createTestStore = () => {
   return configureStore({
     reducer: {
-      investment: (state = { selectedFund: null }, action) => state
+      presence: (state = { activeConversationId: null }, action) => state
     }
   })
 }
 
 const TestWrapper = ({ children }) => {
   const store = createTestStore()
-  
+
   return (
     <Provider store={store}>
       <BrowserRouter>
@@ -377,15 +293,15 @@ const TestWrapper = ({ children }) => {
   )
 }
 
-describe('InvestmentPage', () => {
+describe('ConversationsPage', () => {
   it('renders without crashing', () => {
     render(
       <TestWrapper>
-        <InvestmentPage />
+        <ConversationsPage />
       </TestWrapper>
     )
-    
-    expect(screen.getByText('Investment Options')).toBeInTheDocument()
+
+    expect(screen.getByText('Conversations')).toBeInTheDocument()
   })
 })
 ```

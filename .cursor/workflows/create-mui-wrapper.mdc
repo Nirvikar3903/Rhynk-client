@@ -5,7 +5,20 @@
 ### 1. File Structure
 - **Location**: `src/components/mui/ComponentNameComponent.jsx`
 - **Naming**: PascalCase with `Component` suffix
-- **Pattern**: Wrap every MUI component used in the app
+- **Pattern**: Wrap every MUI component the app actually uses (Button, TextField,
+  Card, Dialog, …) rather than importing `@mui/material` primitives directly
+  all over the codebase — this gives theme-level behavior (loading states,
+  consistent `sx` defaults) one place to live.
+- **Current state**: `src/components/mui/` already exists as a folder but is
+  still empty — no wrapper components have been written yet, and `src/theme/`
+  has no `createTheme()` call wired up either. Don't assume a shared theme
+  object exists until `src/theme/index.js` is actually populated.
+
+> Note on PropTypes: `prop-types` is **not** currently listed in
+> `package.json` (dependencies or devDependencies) — verify before assuming
+> it's installed. The template below shows the intended convention once the
+> package is added; if it isn't installed yet when you're doing this task,
+> flag that gap rather than silently importing a package that doesn't exist.
 
 ### 2. MUI Wrapper Template
 ```javascript
@@ -14,7 +27,7 @@ import React, { memo } from 'react'
 import { Button as MuiButton } from '@mui/material'
 import PropTypes from 'prop-types'
 
-const AppButtonComponent = ({ 
+const AppButtonComponent = ({
   variant = 'contained',
   color = 'primary',
   size = 'medium',
@@ -23,7 +36,7 @@ const AppButtonComponent = ({
   children,
   onClick,
   sx = {},
-  ...props 
+  ...props
 }) => {
   return (
     <MuiButton
@@ -56,19 +69,10 @@ AppButtonComponent.propTypes = {
   sx: PropTypes.object
 }
 
-AppButtonComponent.defaultProps = {
-  variant: 'contained',
-  color: 'primary',
-  size: 'medium',
-  loading: false,
-  disabled: false,
-  sx: {}
-}
-
 export default memo(AppButtonComponent)
 ```
 
-### 3. Financial App MUI Wrappers
+### 3. Rhynk MUI Wrappers
 
 #### AppTextFieldComponent
 ```javascript
@@ -128,13 +132,6 @@ AppTextFieldComponent.propTypes = {
   sx: PropTypes.object
 }
 
-AppTextFieldComponent.defaultProps = {
-  required: false,
-  type: 'text',
-  disabled: false,
-  sx: {}
-}
-
 export default memo(AppTextFieldComponent)
 ```
 
@@ -145,11 +142,11 @@ import React, { memo } from 'react'
 import { Card as MuiCard, CardContent as MuiCardContent } from '@mui/material'
 import PropTypes from 'prop-types'
 
-const AppCardComponent = ({ 
-  children, 
+const AppCardComponent = ({
+  children,
   elevation = 1,
   sx = {},
-  ...props 
+  ...props
 }) => {
   return (
     <MuiCard
@@ -178,11 +175,6 @@ AppCardComponent.propTypes = {
   sx: PropTypes.object
 }
 
-AppCardComponent.defaultProps = {
-  elevation: 1,
-  sx: {}
-}
-
 export default memo(AppCardComponent)
 ```
 
@@ -190,8 +182,8 @@ export default memo(AppCardComponent)
 ```javascript
 // src/components/mui/AppModalComponent.jsx
 import React, { memo } from 'react'
-import { 
-  Dialog as MuiDialog, 
+import {
+  Dialog as MuiDialog,
   DialogTitle as MuiDialogTitle,
   DialogContent as MuiDialogContent,
   DialogActions as MuiDialogActions,
@@ -200,7 +192,7 @@ import {
 import { Close as CloseIcon } from '@mui/icons-material'
 import PropTypes from 'prop-types'
 
-const AppModalComponent = ({ 
+const AppModalComponent = ({
   open,
   onClose,
   title,
@@ -209,7 +201,7 @@ const AppModalComponent = ({
   maxWidth = 'sm',
   fullWidth = true,
   sx = {},
-  ...props 
+  ...props
 }) => {
   return (
     <MuiDialog
@@ -244,11 +236,11 @@ const AppModalComponent = ({
           </IconButton>
         </MuiDialogTitle>
       )}
-      
+
       <MuiDialogContent>
         {children}
       </MuiDialogContent>
-      
+
       {actions && (
         <MuiDialogActions>
           {actions}
@@ -269,12 +261,6 @@ AppModalComponent.propTypes = {
   sx: PropTypes.object
 }
 
-AppModalComponent.defaultProps = {
-  maxWidth: 'sm',
-  fullWidth: true,
-  sx: {}
-}
-
 export default memo(AppModalComponent)
 ```
 
@@ -282,25 +268,34 @@ export default memo(AppModalComponent)
 
 #### ✅ Basic Requirements
 - [ ] Create wrapper for every MUI component used
-- [ ] Use PropTypes for all prop validation (NO TypeScript)
+- [ ] Use PropTypes for all prop validation (NO TypeScript) — once `prop-types`
+      is installed; confirm it's actually in `package.json` before assuming so
 - [ ] Apply consistent styling with SX prop
-- [ ] Include proper default props
+- [ ] Include proper default props (via default parameters, not
+      `Component.defaultProps` — that pattern is deprecated for function
+      components in React 19)
 - [ ] Use React.memo for performance
 - [ ] Follow JSX file structure order
 
 #### ✅ MUI Integration
 - [ ] Wrap MUI component with custom props
-- [ ] Apply consistent theme integration
+- [ ] Apply consistent theme integration once `src/theme/index.js` exists
 - [ ] Add hover and focus states
 - [ ] Ensure accessibility compliance
 - [ ] Use MUI's responsive breakpoint system
 
-#### ✅ Financial App Specific
-- [ ] Include financial data formatting utilities
-- [ ] Add proper error handling and display
-- [ ] Include loading states where needed
-- [ ] Consider mobile responsiveness
-- [ ] Add proper data validation
+#### ✅ Rhynk Specific
+- [ ] Consider dark-mode-first styling — the PRD's own screenshots skew
+      toward a dark, music-app aesthetic; don't assume light-mode-first
+      defaults once the theme is built
+- [ ] Include proper error/empty states for wrappers used in chat and
+      music-room UI (e.g. `AppModalComponent` used for room settings,
+      `AppTextFieldComponent` used for the message composer)
+- [ ] Add loading states where needed (e.g. a `loading` prop on
+      `AppButtonComponent` for send/DJ-action buttons)
+- [ ] Consider mobile responsiveness — MUI breakpoints (`xs`/`sm`/`md`), not
+      Tailwind prefixes
+- [ ] Add proper data validation for props coming from RTK Query responses
 
 ### 5. Common MUI Wrappers to Create
 
@@ -348,14 +343,20 @@ export { default as AppChipComponent } from './AppChipComponent'
 export { default as AppBadgeComponent } from './AppBadgeComponent'
 
 // Usage
-import { 
-  AppButtonComponent, 
-  AppTextFieldComponent, 
-  AppCardComponent 
+import {
+  AppButtonComponent,
+  AppTextFieldComponent,
+  AppCardComponent
 } from 'components/mui'
 ```
 
-### 7. Testing Template
+### 7. Testing
+
+No test runner (Vitest/Jest) is configured in this repo yet — there's no
+test script in `package.json`. The template below is the intended shape
+**once** a runner is introduced; don't write it assuming `npm test` already
+works today.
+
 ```javascript
 // src/components/mui/__tests__/AppButtonComponent.test.jsx
 import React from 'react'
@@ -372,13 +373,13 @@ describe('AppButtonComponent', () => {
   it('handles click events', async () => {
     const user = userEvent.setup()
     const handleClick = jest.fn()
-    
+
     render(
       <AppButtonComponent onClick={handleClick}>
         Click me
       </AppButtonComponent>
     )
-    
+
     await user.click(screen.getByRole('button'))
     expect(handleClick).toHaveBeenCalledTimes(1)
   })
@@ -394,7 +395,7 @@ describe('AppButtonComponent', () => {
         Click me
       </AppButtonComponent>
     )
-    
+
     const button = screen.getByRole('button')
     expect(button).toHaveStyle('color: red')
   })

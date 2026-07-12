@@ -4,426 +4,212 @@
 
 ### 1. File Structure
 - **Location**: `src/store/parsers/domainName.parsers.js`
-- **Naming**: kebab-case with `.parsers.js` suffix
-- **Pattern**: One parser file per domain/feature
+- **Naming**: camelCase domain + `.parsers.js` suffix — `conversations.parsers.js`,
+  `auth.parsers.js`
+- **Pattern**: One parser file per domain, pure functions only, called via
+  an RTK Query endpoint's `transformResponse`.
 
-### 2. Parser Template
+### 2. When a parser earns its keep
+
+A parser is a **pure function** that reshapes a raw server response into
+what the app actually wants to consume — flattening a nested payload,
+computing a derived field, normalizing an array into a lookup map. For an
+endpoint whose response is already exactly what components need, skip the
+indirection rather than adding a pass-through parser for consistency's sake
+(see the state-layer rules).
+
+### 3. Parser Template — Conversations
 ```javascript
-// src/store/parsers/fund.parsers.js
+// src/store/parsers/conversations.parsers.js
 
-// Parse funds list response
-export const parseFundsResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      funds: [],
-      pagination: {
-        page: 1,
-        limit: 20,
-        total: 0,
-        totalPages: 0
-      }
-    }
-  }
+// Parse conversation list response
+export const parseConversationsResponse = (response) => {
+  if (!response?.data) return []
 
-  return {
-    funds: response.data.map(fund => ({
-      id: fund.id,
-      name: fund.name,
-      nav: parseFloat(fund.nav),
-      category: fund.category,
-      riskLevel: fund.risk_level,
-      returns: parseFloat(fund.returns),
-      aum: parseFloat(fund.aum),
-      expenseRatio: parseFloat(fund.expense_ratio),
-      fundManager: fund.fund_manager,
-      inceptionDate: fund.inception_date
-    })),
-    pagination: {
-      page: response.pagination?.page || 1,
-      limit: response.pagination?.limit || 20,
-      total: response.pagination?.total || 0,
-      totalPages: response.pagination?.total_pages || 0
-    }
-  }
+  return response.data.map((conversation) => ({
+    id: conversation.id,
+    type: conversation.type, // 'direct' | 'group'
+    name: conversation.name,
+    lastMessageAt: conversation.lastMessage?.createdAt ?? null,
+    lastMessagePreview: conversation.lastMessage?.content ?? null,
+    unreadCount: conversation.unread_count ?? 0,
+    participants: conversation.participants?.map((participant) => ({
+      id: participant.id,
+      displayName: participant.display_name,
+      avatarUrl: participant.avatar_url
+    })) ?? []
+  }))
 }
 
-// Parse fund details response
-export const parseFundDetailsResponse = (response) => {
-  if (!response || !response.data) {
-    return null
-  }
+// Parse a single conversation response
+export const parseConversationDetailsResponse = (response) => {
+  if (!response?.data) return null
 
   return {
     id: response.data.id,
+    type: response.data.type,
     name: response.data.name,
-    nav: parseFloat(response.data.nav),
-    category: response.data.category,
-    riskLevel: response.data.risk_level,
-    returns: parseFloat(response.data.returns),
-    aum: parseFloat(response.data.aum),
-    expenseRatio: parseFloat(response.data.expense_ratio),
-    description: response.data.description,
-    fundManager: response.data.fund_manager,
-    inceptionDate: response.data.inception_date,
-    performance: response.data.performance?.map(p => ({
-      period: p.period,
-      returns: parseFloat(p.returns)
-    })) || []
-  }
-}
-
-// Parse fund performance response
-export const parseFundPerformanceResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      performance: [],
-      benchmark: null
-    }
-  }
-
-  return {
-    performance: response.data.performance?.map(p => ({
-      date: p.date,
-      nav: parseFloat(p.nav),
-      returns: parseFloat(p.returns)
-    })) || [],
-    benchmark: response.data.benchmark ? {
-      name: response.data.benchmark.name,
-      returns: parseFloat(response.data.benchmark.returns)
-    } : null
+    participants: response.data.participants?.map((participant) => ({
+      id: participant.id,
+      displayName: participant.display_name,
+      avatarUrl: participant.avatar_url
+    })) ?? []
   }
 }
 ```
 
-### 3. Financial App Parser Examples
+### 4. Rhynk Parser Examples
 
-#### User/Auth Parsers
+#### Auth Parsers
 ```javascript
 // src/store/parsers/auth.parsers.js
 
-// Parse login response
-export const parseLoginResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      user: null,
-      tokens: null,
-      success: false
-    }
+// Parse POST /auth/login or /auth/verify-otp response:
+// { accessToken, refreshToken, user }
+export const parseAuthSessionResponse = (response) => {
+  if (!response) {
+    return { user: null, accessToken: null, refreshToken: null }
   }
 
   return {
     user: {
-      id: response.data.user.id,
-      firstName: response.data.user.first_name,
-      lastName: response.data.user.last_name,
-      email: response.data.user.email,
-      phone: response.data.user.phone,
-      kycStatus: response.data.user.kyc_status,
-      bankAccounts: response.data.user.bank_accounts?.map(account => ({
-        id: account.id,
-        accountNumber: account.account_number,
-        bankName: account.bank_name,
-        ifscCode: account.ifsc_code,
-        isDefault: account.is_default
-      })) || []
+      id: response.user.id,
+      username: response.user.username,
+      email: response.user.email,
+      avatarUrl: response.user.avatar_url ?? null
     },
-    tokens: {
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresIn: response.data.expires_in
-    },
-    success: true
-  }
-}
-
-// Parse user profile response
-export const parseUserProfileResponse = (response) => {
-  if (!response || !response.data) {
-    return null
-  }
-
-  return {
-    id: response.data.id,
-    firstName: response.data.first_name,
-    lastName: response.data.last_name,
-    email: response.data.email,
-    phone: response.data.phone,
-    dateOfBirth: response.data.date_of_birth,
-    panNumber: response.data.pan_number,
-    aadhaarNumber: response.data.aadhaar_number,
-    kycStatus: response.data.kyc_status,
-    address: response.data.address ? {
-      line1: response.data.address.line_1,
-      line2: response.data.address.line_2,
-      city: response.data.address.city,
-      state: response.data.address.state,
-      pincode: response.data.address.pincode,
-      country: response.data.address.country
-    } : null,
-    preferences: response.data.preferences || {}
+    accessToken: response.accessToken,
+    refreshToken: response.refreshToken
   }
 }
 ```
 
-#### Investment Parsers
+#### Music Room Parsers
 ```javascript
-// src/store/parsers/investment.parsers.js
+// src/store/parsers/musicRoom.parsers.js
 
-// Parse portfolio response
-export const parsePortfolioResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      investments: [],
-      totalValue: 0,
-      totalGain: 0,
-      totalGainPercentage: 0
-    }
-  }
-
-  const investments = response.data.investments?.map(investment => ({
-    id: investment.id,
-    fundId: investment.fund_id,
-    fundName: investment.fund_name,
-    units: parseFloat(investment.units),
-    averagePrice: parseFloat(investment.average_price),
-    currentPrice: parseFloat(investment.current_price),
-    investedAmount: parseFloat(investment.invested_amount),
-    currentValue: parseFloat(investment.current_value),
-    gain: parseFloat(investment.gain),
-    gainPercentage: parseFloat(investment.gain_percentage),
-    investmentType: investment.investment_type,
-    startDate: investment.start_date,
-    lastTransactionDate: investment.last_transaction_date
-  })) || []
-
-  return {
-    investments,
-    totalValue: parseFloat(response.data.total_value || 0),
-    totalGain: parseFloat(response.data.total_gain || 0),
-    totalGainPercentage: parseFloat(response.data.total_gain_percentage || 0)
-  }
-}
-
-// Parse SIP order response
-export const parseSIPOrderResponse = (response) => {
-  if (!response || !response.data) {
-    return null
+// Parse GET /rooms/:roomId/queue response
+export const parseRoomQueueResponse = (response) => {
+  if (!response?.data) {
+    return { djUserId: null, members: [], tracks: [] }
   }
 
   return {
-    id: response.data.id,
-    fundId: response.data.fund_id,
-    fundName: response.data.fund_name,
-    amount: parseFloat(response.data.amount),
-    frequency: response.data.frequency,
-    startDate: response.data.start_date,
-    endDate: response.data.end_date,
-    status: response.data.status,
-    nextExecutionDate: response.data.next_execution_date,
-    autoDebit: response.data.auto_debit,
-    bankAccountId: response.data.bank_account_id
-  }
-}
-
-// Parse transaction response
-export const parseTransactionResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      transactions: [],
-      pagination: {
-        page: 1,
-        limit: 20,
-        total: 0,
-        totalPages: 0
-      }
-    }
-  }
-
-  return {
-    transactions: response.data.transactions?.map(transaction => ({
-      id: transaction.id,
-      type: transaction.type,
-      fundId: transaction.fund_id,
-      fundName: transaction.fund_name,
-      amount: parseFloat(transaction.amount),
-      units: parseFloat(transaction.units),
-      nav: parseFloat(transaction.nav),
-      status: transaction.status,
-      date: transaction.date,
-      orderId: transaction.order_id,
-      referenceNumber: transaction.reference_number
-    })) || [],
-    pagination: {
-      page: response.pagination?.page || 1,
-      limit: response.pagination?.limit || 20,
-      total: response.pagination?.total || 0,
-      totalPages: response.pagination?.total_pages || 0
-    }
+    djUserId: response.data.dj_user_id,
+    members: response.data.members?.map((member) => ({
+      id: member.id,
+      displayName: member.display_name,
+      avatarUrl: member.avatar_url
+    })) ?? [],
+    tracks: response.data.tracks?.map((track) => ({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      durationMs: track.duration_ms,
+      addedByUserId: track.added_by
+    })) ?? []
   }
 }
 ```
 
-#### KYC Parsers
-```javascript
-// src/store/parsers/kyc.parsers.js
-
-// Parse KYC status response
-export const parseKYCStatusResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      status: 'pending',
-      documents: [],
-      lastUpdated: null
-    }
-  }
-
-  return {
-    status: response.data.status,
-    documents: response.data.documents?.map(doc => ({
-      id: doc.id,
-      type: doc.type,
-      status: doc.status,
-      uploadedAt: doc.uploaded_at,
-      verifiedAt: doc.verified_at,
-      rejectionReason: doc.rejection_reason
-    })) || [],
-    lastUpdated: response.data.last_updated
-  }
-}
-
-// Parse KYC submission response
-export const parseKYCSubmissionResponse = (response) => {
-  if (!response || !response.data) {
-    return {
-      success: false,
-      message: 'Submission failed'
-    }
-  }
-
-  return {
-    success: response.data.success,
-    message: response.data.message,
-    kycId: response.data.kyc_id,
-    status: response.data.status
-  }
-}
-```
-
-### 4. Parser Requirements Checklist
+### 5. Parser Requirements Checklist
 
 #### ✅ Basic Requirements
-- [ ] Create parser for each API endpoint
-- [ ] Handle null/undefined responses gracefully
-- [ ] Transform API response to app-friendly format
+- [ ] Create a parser only where the raw response needs real transformation
+- [ ] Handle null/undefined responses gracefully — return an empty
+      list/object shape, never throw
+- [ ] Transform snake_case server fields to camelCase app fields
 - [ ] Use consistent naming conventions (camelCase)
-- [ ] Parse numeric values with parseFloat/parseInt
-- [ ] Handle nested objects and arrays properly
+- [ ] Parse numeric strings with `parseFloat`/`parseInt` where the server
+      sends numbers as strings
+- [ ] Handle nested objects and arrays properly (optional chaining +
+      fallback to `[]`/`null`)
 
-#### ✅ Financial App Specific
-- [ ] Parse monetary values correctly
-- [ ] Handle percentage calculations
-- [ ] Transform date strings to proper format
-- [ ] Include proper error handling for invalid data
-- [ ] Validate required fields before parsing
+#### ✅ Rhynk Specific
+- [ ] Pass the server's compound message cursor (`{ created_at, _id }`)
+      through unmodified — never reconstruct or guess a cursor client-side
+      (see the state-layer and realtime-sockets rules)
+- [ ] Don't reshape auth token fields beyond what's shown above — the client
+      must store exactly the `accessToken`/`refreshToken` the server returns
+      each time (refresh tokens rotate on every call)
+- [ ] For music-room state, never fabricate `position_ms`/`is_playing` — pass
+      through whatever the server/Redis considers current
 
 #### ✅ Error Handling
-- [ ] Return default values for failed parsing
-- [ ] Log parsing errors for debugging
-- [ ] Handle malformed API responses
-- [ ] Include fallback values for missing data
+- [ ] Return sensible default/empty values for a missing or malformed
+      response, not `undefined`
+- [ ] Don't swallow structurally invalid responses silently in production —
+      log them for debugging
+- [ ] Include fallback values for optional/missing fields
 
-### 5. Parser Usage in API Services
+### 6. Parser Usage in API Services
 ```javascript
-// src/store/api/investment.apislice.js
+// src/store/api/conversations.apislice.js
 import { baseApi } from './baseApi'
-import { 
-  parseFundsResponse, 
-  parseFundDetailsResponse,
-  parsePortfolioResponse 
-} from 'store/parsers/investment.parsers'
+import {
+  parseConversationsResponse,
+  parseConversationDetailsResponse
+} from 'store/parsers/conversations.parsers'
 
-export const investmentApi = baseApi.injectEndpoints({
+export const conversationsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getFunds: builder.query({
-      query: (params) => ({
-        url: '/funds',
-        params
-      }),
-      transformResponse: parseFundsResponse,
-      providesTags: ['Fund']
+    getConversations: builder.query({
+      query: () => '/conversations',
+      transformResponse: parseConversationsResponse,
+      providesTags: ['Conversation']
     }),
-    
-    getFundById: builder.query({
-      query: (id) => `/funds/${id}`,
-      transformResponse: parseFundDetailsResponse,
-      providesTags: (result, error, id) => [{ type: 'Fund', id }]
-    }),
-    
-    getPortfolio: builder.query({
-      query: () => '/portfolio',
-      transformResponse: parsePortfolioResponse,
-      providesTags: ['Portfolio']
+
+    getConversationById: builder.query({
+      query: (id) => `/conversations/${id}`,
+      transformResponse: parseConversationDetailsResponse,
+      providesTags: (result, error, id) => [{ type: 'Conversation', id }]
     })
   })
 })
 ```
 
-### 6. Testing Template
-```javascript
-// src/store/parsers/__tests__/fund.parsers.test.js
-import { 
-  parseFundsResponse, 
-  parseFundDetailsResponse 
-} from '../fund.parsers'
+### 7. Testing
 
-describe('fund.parsers', () => {
-  describe('parseFundsResponse', () => {
-    it('handles null response', () => {
-      const result = parseFundsResponse(null)
-      expect(result).toEqual({
-        funds: [],
-        pagination: {
-          page: 1,
-          limit: 20,
-          total: 0,
-          totalPages: 0
-        }
-      })
+No test runner (Vitest/Jest) is configured in this repo yet — the template
+below is the intended shape once one is added, not something that runs today.
+
+```javascript
+// src/store/parsers/__tests__/conversations.parsers.test.js
+import { parseConversationsResponse } from '../conversations.parsers'
+
+describe('conversations.parsers', () => {
+  describe('parseConversationsResponse', () => {
+    it('handles a missing response', () => {
+      expect(parseConversationsResponse(null)).toEqual([])
     })
 
-    it('parses valid response correctly', () => {
+    it('parses a valid response correctly', () => {
       const response = {
         data: [
           {
-            id: '1',
-            name: 'Test Fund',
-            nav: '150.25',
-            category: 'Equity',
-            risk_level: 'High',
-            returns: '12.5',
-            aum: '1000000',
-            expense_ratio: '1.5'
+            id: 'conv-1',
+            type: 'direct',
+            name: 'Nova',
+            lastMessage: { content: 'hey', createdAt: '2026-07-12T10:00:00.000Z' },
+            unread_count: 2,
+            participants: [
+              { id: 'user-1', display_name: 'Nova', avatar_url: null }
+            ]
           }
-        ],
-        pagination: {
-          page: 1,
-          limit: 20,
-          total: 1,
-          total_pages: 1
-        }
+        ]
       }
 
-      const result = parseFundsResponse(response)
-      expect(result.funds).toHaveLength(1)
-      expect(result.funds[0]).toEqual({
-        id: '1',
-        name: 'Test Fund',
-        nav: 150.25,
-        category: 'Equity',
-        riskLevel: 'High',
-        returns: 12.5,
-        aum: 1000000,
-        expenseRatio: 1.5
+      const result = parseConversationsResponse(response)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toEqual({
+        id: 'conv-1',
+        type: 'direct',
+        name: 'Nova',
+        lastMessageAt: '2026-07-12T10:00:00.000Z',
+        lastMessagePreview: 'hey',
+        unreadCount: 2,
+        participants: [{ id: 'user-1', displayName: 'Nova', avatarUrl: null }]
       })
     })
   })

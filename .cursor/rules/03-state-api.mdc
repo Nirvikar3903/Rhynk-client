@@ -7,26 +7,32 @@ alwaysApply: true
 
 ### Redux Slice Pattern
 ```javascript
-// src/store/slices/investment.slice.js
+// src/store/slices/musicRoom.slice.js
 import { createSlice, createSelector } from '@reduxjs/toolkit'
 
 const initialState = {
-  funds: [],
-  selectedFund: null,
-  portfolio: [],
+  roomId: null,
+  members: [],
+  currentTrack: null,
+  queue: [],
+  isPlaying: false,
   loading: false,
   error: null
 }
 
-const investmentSlice = createSlice({
-  name: 'investment',
+const musicRoomSlice = createSlice({
+  name: 'musicRoom',
   initialState,
   reducers: {
-    setFunds: (state, action) => {
-      state.funds = action.payload
+    setRoom: (state, action) => {
+      state.roomId = action.payload.roomId
+      state.members = action.payload.members
     },
-    setSelectedFund: (state, action) => {
-      state.selectedFund = action.payload
+    setCurrentTrack: (state, action) => {
+      state.currentTrack = action.payload
+    },
+    setPlaying: (state, action) => {
+      state.isPlaying = action.payload
     },
     setLoading: (state, action) => {
       state.loading = action.payload
@@ -40,39 +46,40 @@ const investmentSlice = createSlice({
   }
 })
 
-export const { 
-  setFunds, 
-  setSelectedFund, 
-  setLoading, 
-  setError, 
-  clearError 
-} = investmentSlice.actions
+export const {
+  setRoom,
+  setCurrentTrack,
+  setPlaying,
+  setLoading,
+  setError,
+  clearError
+} = musicRoomSlice.actions
 
 // Selectors
-export const selectFunds = (state) => state.investment.funds
-export const selectSelectedFund = (state) => state.investment.selectedFund
-export const selectPortfolio = (state) => state.investment.portfolio
-export const selectInvestmentLoading = (state) => state.investment.loading
-export const selectInvestmentError = (state) => state.investment.error
+export const selectRoomMembers = (state) => state.musicRoom.members
+export const selectCurrentTrack = (state) => state.musicRoom.currentTrack
+export const selectQueue = (state) => state.musicRoom.queue
+export const selectMusicRoomLoading = (state) => state.musicRoom.loading
+export const selectMusicRoomError = (state) => state.musicRoom.error
 
 // Memoized selectors
-export const selectFundsByCategory = createSelector(
-  [selectFunds, (state, category) => category],
-  (funds, category) => funds.filter(fund => fund.category === category)
+export const selectQueueByAddedBy = createSelector(
+  [selectQueue, (state, userId) => userId],
+  (queue, userId) => queue.filter(item => item.addedBy === userId)
 )
 
-export default investmentSlice.reducer
+export default musicRoomSlice.reducer
 ```
 
 ## API Response Parsers
 
 ### Parser Pattern
 ```javascript
-// src/store/parsers/fund.parsers.js
-export const parseFundsResponse = (response) => {
+// src/store/parsers/conversations.parsers.js
+export const parseConversationsResponse = (response) => {
   if (!response || !response.data) {
     return {
-      funds: [],
+      conversations: [],
       pagination: {
         page: 1,
         limit: 20,
@@ -83,15 +90,12 @@ export const parseFundsResponse = (response) => {
   }
 
   return {
-    funds: response.data.map(fund => ({
-      id: fund.id,
-      name: fund.name,
-      nav: parseFloat(fund.nav),
-      category: fund.category,
-      riskLevel: fund.risk_level,
-      returns: parseFloat(fund.returns),
-      aum: parseFloat(fund.aum),
-      expenseRatio: parseFloat(fund.expense_ratio)
+    conversations: response.data.map((c) => ({
+      id: c.id,
+      type: c.type,
+      name: c.name,
+      lastMessageAt: c.lastMessage?.createdAt ?? null,
+      unreadCount: c.unread_count ?? 0
     })),
     pagination: {
       page: response.pagination?.page || 1,
@@ -102,103 +106,65 @@ export const parseFundsResponse = (response) => {
   }
 }
 
-export const parseFundDetailsResponse = (response) => {
+export const parseConversationDetailsResponse = (response) => {
   if (!response || !response.data) {
     return null
   }
 
   return {
     id: response.data.id,
+    type: response.data.type,
     name: response.data.name,
-    nav: parseFloat(response.data.nav),
-    category: response.data.category,
-    riskLevel: response.data.risk_level,
-    returns: parseFloat(response.data.returns),
-    aum: parseFloat(response.data.aum),
-    expenseRatio: parseFloat(response.data.expense_ratio),
-    description: response.data.description,
-    fundManager: response.data.fund_manager,
-    inceptionDate: response.data.inception_date
+    members: response.data.members,
+    createdAt: response.data.created_at
   }
 }
 ```
 
-## Redux Persist Configuration
+## Client-State Persistence
 
-### Per-Slice Persist Strategy
+Redux Persist is **not installed** in this repo — don't write code assuming
+`persistReducer`/`persistStore` exist. If persistence is ever added, the
+security-relevant call is which state gets whitelisted:
+
+- **Don't persist** `accessToken`/`refreshToken` in plain `localStorage` —
+  tokens belong in memory (the `auth` slice) and are re-obtained via
+  `/auth/refresh` on reload, per [[06-auth-security]]. Persisting raw JWTs
+  to `localStorage` widens the XSS blast radius for no real benefit given
+  the 15-minute access token lifetime.
+- **Safe to persist** (if/when persistence is added): non-sensitive user
+  profile fields, UI preferences (theme, last-viewed conversation) — not
+  server-derived caches, which belong in RTK Query's own cache per
+  [[01-architecture]].
+
 ```javascript
-// src/store/slices/user.slice.js
-import { createSlice } from '@reduxjs/toolkit'
-import { persistReducer } from 'redux-persist'
-import storage from 'redux-persist/lib/storage'
-
-const userPersistConfig = {
-  key: 'user',
+// Illustrative only — redux-persist is not a dependency today.
+// If adopted, whitelist narrowly:
+const authPersistConfig = {
+  key: 'auth',
   storage,
-  whitelist: ['profile', 'preferences'], // Don't persist tokens
+  whitelist: ['user'], // NOT accessToken/refreshToken
   blacklist: ['loading', 'error']
 }
-
-const userSlice = createSlice({
-  name: 'user',
-  initialState: {
-    profile: null,
-    preferences: {},
-    loading: false,
-    error: null
-  },
-  reducers: {
-    setUser: (state, action) => {
-      state.profile = action.payload
-    },
-    updatePreferences: (state, action) => {
-      state.preferences = { ...state.preferences, ...action.payload }
-    }
-  }
-})
-
-// Apply persist to this slice only
-export default persistReducer(userPersistConfig, userSlice.reducer)
 ```
 
 ### Store Configuration
 ```javascript
 // src/store/index.js
 import { configureStore } from '@reduxjs/toolkit'
-import { persistStore } from 'redux-persist'
-import userReducer from './slices/user.slice'
-import investmentReducer from './slices/investment.slice'
+import { baseApi } from './api/baseApi'
+import authReducer from './slices/auth.slice'
+import musicRoomReducer from './slices/musicRoom.slice'
 
 export const store = configureStore({
   reducer: {
-    user: userReducer, // Already persisted
-    investment: investmentReducer, // Already persisted
+    [baseApi.reducerPath]: baseApi.reducer,
+    auth: authReducer,
+    musicRoom: musicRoomReducer
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
-      }
-    })
+    getDefaultMiddleware().concat(baseApi.middleware)
 })
-
-export const persistor = persistStore(store)
-```
-
-### Selective Persistence
-```javascript
-// Persist only specific fields
-const userPersistConfig = {
-  key: 'user',
-  storage,
-  whitelist: ['profile', 'preferences'] // Don't persist tokens
-}
-
-const investmentPersistConfig = {
-  key: 'investment',
-  storage,
-  whitelist: ['portfolio', 'watchlist'] // Don't persist loading states
-}
 ```
 
 ## RTK Query API Integration
@@ -207,14 +173,13 @@ const investmentPersistConfig = {
 ```javascript
 // src/store/api/baseApi.js
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
-import { getAuthToken } from 'utils/auth'
 
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.REACT_APP_API_BASE_URL,
+    baseUrl: import.meta.env.VITE_API_URL,
     prepareHeaders: (headers, { getState }) => {
-      const token = getAuthToken()
+      const token = getState().auth.accessToken
       if (token) {
         headers.set('authorization', `Bearer ${token}`)
       }
@@ -222,117 +187,109 @@ export const baseApi = createApi({
       return headers
     }
   }),
-  tagTypes: ['User', 'Fund', 'Portfolio', 'Transaction'],
+  tagTypes: ['User', 'Conversation', 'Message', 'MusicRoom', 'Song', 'Playlist', 'Notification'],
   endpoints: () => ({})
 })
 ```
 
+`axios` is installed (`^1.18.1`) but `fetchBaseQuery` (native `fetch`) is the
+standard pairing with RTK Query and is the default shown above — don't mix
+axios into a `.apislice.js` file without a documented reason.
+
 ### API Service Pattern with Parsers
 ```javascript
-// src/store/api/investment.apislice.js
+// src/store/api/conversations.apislice.js
 import { baseApi } from './baseApi'
-import { parseFundsResponse, parseFundDetailsResponse } from 'store/parsers/fund.parsers'
+import { parseConversationsResponse, parseConversationDetailsResponse } from 'store/parsers/conversations.parsers'
 
-export const investmentApi = baseApi.injectEndpoints({
+export const conversationsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Get all funds
-    getFunds: builder.query({
+    // Get all conversations
+    getConversations: builder.query({
       query: (params = {}) => ({
-        url: '/funds',
+        url: '/conversations',
         params
       }),
-      transformResponse: parseFundsResponse,
-      providesTags: ['Fund']
+      transformResponse: parseConversationsResponse,
+      providesTags: ['Conversation']
     }),
-    
-    // Get fund details
-    getFundById: builder.query({
-      query: (id) => `/funds/${id}`,
-      providesTags: (result, error, id) => [{ type: 'Fund', id }]
+
+    // Get conversation details
+    getConversationById: builder.query({
+      query: (id) => `/conversations/${id}`,
+      transformResponse: parseConversationDetailsResponse,
+      providesTags: (result, error, id) => [{ type: 'Conversation', id }]
     }),
-    
-    // Get user portfolio
-    getPortfolio: builder.query({
-      query: () => '/portfolio',
-      providesTags: ['Portfolio']
-    }),
-    
-    // Create SIP order
-    createSIPOrder: builder.mutation({
-      query: (orderData) => ({
-        url: '/orders/sip',
+
+    // Create a conversation
+    createConversation: builder.mutation({
+      query: (body) => ({
+        url: '/conversations',
         method: 'POST',
-        body: orderData
+        body
       }),
-      invalidatesTags: ['Portfolio', 'Transaction']
-    }),
-    
-    // Create lumpsum order
-    createLumpsumOrder: builder.mutation({
-      query: (orderData) => ({
-        url: '/orders/lumpsum',
-        method: 'POST',
-        body: orderData
-      }),
-      invalidatesTags: ['Portfolio', 'Transaction']
-    }),
-    
-    // Redeem investment
-    redeemInvestment: builder.mutation({
-      query: (redemptionData) => ({
-        url: '/orders/redeem',
-        method: 'POST',
-        body: redemptionData
-      }),
-      invalidatesTags: ['Portfolio', 'Transaction']
+      invalidatesTags: ['Conversation']
     })
   })
 })
 
 export const {
-  useGetFundsQuery,
-  useGetFundByIdQuery,
-  useGetPortfolioQuery,
-  useCreateSIPOrderMutation,
-  useCreateLumpsumOrderMutation,
-  useRedeemInvestmentMutation
-} = investmentApi
+  useGetConversationsQuery,
+  useGetConversationByIdQuery,
+  useCreateConversationMutation
+} = conversationsApi
 ```
 
-### Store Registration
+### Music Room Endpoint Example
 ```javascript
-// src/store/index.js
-import { configureStore } from '@reduxjs/toolkit'
-import { baseApi } from './api/baseApi'
-import investmentReducer from './slices/investmentSlice'
-import userReducer from './slices/userSlice'
+// src/store/api/musicRoom.apislice.js
+import { baseApi } from './baseApi'
 
-export const store = configureStore({
-  reducer: {
-    [baseApi.reducerPath]: baseApi.reducer,
-    investment: investmentReducer,
-    user: userReducer
-  },
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(baseApi.middleware)
+export const musicRoomApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    joinRoom: builder.mutation({
+      query: (roomId) => ({
+        url: `/music-rooms/${roomId}/join`,
+        method: 'POST'
+      }),
+      invalidatesTags: ['MusicRoom']
+    }),
+    updateQueue: builder.mutation({
+      query: ({ roomId, songId, action }) => ({
+        url: `/music-rooms/${roomId}/queue`,
+        method: 'PATCH',
+        body: { songId, action } // action: 'add' | 'remove'
+      }),
+      invalidatesTags: ['MusicRoom']
+    })
+  })
 })
+
+export const { useJoinRoomMutation, useUpdateQueueMutation } = musicRoomApi
 ```
+
+## Verify the Base Path Before Hardcoding It
+
+The PRD's API design section uses `/api/v1/...` while the currently
+implemented server auth routes (`docs/AUTH_MODULE.md`) are bare
+`/auth/...` — the two docs disagree. Check the live server's actual route
+registration before hardcoding either prefix into `VITE_API_URL` or a
+`query: () => '/...'` path.
 
 ## Cache Invalidation Strategies
 
 ### Tag-Based Invalidation
 ```javascript
-// Invalidate related data when creating orders
-createSIPOrder: builder.mutation({
-  query: (orderData) => ({
-    url: '/orders/sip',
+// Invalidate related data when sending a message
+sendMessage: builder.mutation({
+  query: (body) => ({
+    url: '/messages',
     method: 'POST',
-    body: orderData
+    body
   }),
   invalidatesTags: [
-    'Portfolio',     // Refresh portfolio data
-    'Transaction',   // Refresh transaction history
-    { type: 'Fund', id: 'LIST' } // Refresh fund list if needed
+    'Message',
+    { type: 'Conversation', id: 'LIST' }
   ]
 })
 ```
@@ -340,28 +297,26 @@ createSIPOrder: builder.mutation({
 ### Optimistic Updates
 ```javascript
 // Optimistic update for better UX
-updatePortfolio: builder.mutation({
-  query: (updates) => ({
-    url: '/portfolio',
-    method: 'PATCH',
-    body: updates
+markConversationRead: builder.mutation({
+  query: (conversationId) => ({
+    url: `/conversations/${conversationId}/read`,
+    method: 'PATCH'
   }),
-  async onQueryStarted(updates, { dispatch, queryFulfilled }) {
-    // Optimistic update
+  async onQueryStarted(conversationId, { dispatch, queryFulfilled }) {
     const patchResult = dispatch(
-      investmentApi.util.updateQueryData('getPortfolio', undefined, (draft) => {
-        Object.assign(draft, updates)
+      conversationsApi.util.updateQueryData('getConversations', undefined, (draft) => {
+        const conversation = draft.conversations.find((c) => c.id === conversationId)
+        if (conversation) conversation.unreadCount = 0
       })
     )
-    
+
     try {
       await queryFulfilled
     } catch {
-      // Revert on error
       patchResult.undo()
     }
   },
-  invalidatesTags: ['Portfolio']
+  invalidatesTags: ['Conversation']
 })
 ```
 
@@ -372,21 +327,36 @@ updatePortfolio: builder.mutation({
 
 ```javascript
 // ✅ Correct - Use RTK Query hooks
-const FundList = () => {
-  const { data: funds, error, isLoading } = useGetFundsQuery()
-  const [createOrder] = useCreateSIPOrderMutation()
-  
+const ConversationList = () => {
+  const { data: conversations, error, isLoading } = useGetConversationsQuery()
+  const [createConversation] = useCreateConversationMutation()
+
   // component logic
 }
 
 // ❌ Avoid - Direct API calls
-const FundList = () => {
-  const [funds, setFunds] = useState([])
-  
+const ConversationList = () => {
+  const [conversations, setConversations] = useState([])
+
   useEffect(() => {
-    fetch('/api/funds') // Don't do this
+    fetch('/api/conversations') // Don't do this
       .then(res => res.json())
-      .then(setFunds)
+      .then(setConversations)
   }, [])
 }
 ```
+
+## Cursor Pagination (Messages)
+
+Message history uses a compound cursor (`{ created_at, _id }`), never `_id`
+alone. Model this with RTK Query's `serializeQueryArgs`/`merge` pagination
+patterns, but pass through exactly the cursor shape the server returns —
+don't reconstruct or guess a cursor client-side.
+
+## Token Refresh on 401
+
+RTK Query supports a wrapped base query that retries once on 401 (a
+`baseQueryWithReauth` pattern) around `/auth/refresh` — see
+[[06-auth-security]] for the exact contract. `SESSION_REVOKED`/a failed
+refresh must dispatch `clearSession` and redirect to login, not retry in a
+loop.

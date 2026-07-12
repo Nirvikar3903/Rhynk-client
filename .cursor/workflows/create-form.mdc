@@ -3,14 +3,29 @@
 ## Form Creation Checklist
 
 ### 1. Form Setup Pattern
-- **Location**: `src/components/forms/FormName.jsx`
-- **Validation**: React Hook Form + Yup schema
-- **Styling**: MUI components with custom styling
-- **Schema**: `src/schemas/formNameSchema.js`
+- **Location**: `src/components/auth/LoginForm.jsx` (dumb, props-based form
+  UI) with the submit handler and API call living in the matching container
+  under `src/features/containers/auth/`.
+- **Validation**: React Hook Form + Yup shown below as the intended pattern —
+  **neither `react-hook-form` nor `yup` is currently listed in
+  `package.json`**. Verify before assuming either is installed; if not, flag
+  the gap (they'd need to be added) rather than writing code against
+  packages that don't exist yet.
+- **Styling**: MUI components with the `sx` prop only.
+- **Schema**: `src/schemas/loginSchema.js` (once a form/validation library is
+  chosen and added).
 
-### 2. Form Template
+### 2. Form Template — Login (matches the real auth contract)
+
+Per the server's documented auth module, `POST /auth/login` expects
+`{ email, password, deviceId, deviceType }` and returns
+`{ accessToken, refreshToken, user }` on success, or `INVALID_CREDENTIALS`
+(401) / `EMAIL_NOT_VERIFIED` (403) as key error cases. `deviceId` is a
+client-generated, `localStorage`-persisted value — not something the user
+types in; `deviceType` is always `'WEB'` for this client.
+
 ```javascript
-// src/components/forms/InvestmentForm.jsx
+// src/components/auth/LoginForm.jsx
 import React from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -19,460 +34,91 @@ import {
   Box,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Typography,
   Alert
 } from '@mui/material'
 
 // Validation schema
-const investmentSchema = yup.object({
-  amount: yup
-    .number()
-    .required('Investment amount is required')
-    .min(500, 'Minimum investment is ₹500')
-    .max(1000000, 'Maximum investment is ₹10,00,000'),
-  duration: yup
-    .number()
-    .required('Duration is required')
-    .min(1, 'Minimum duration is 1 month')
-    .max(60, 'Maximum duration is 60 months'),
-  riskProfile: yup
+const loginSchema = yup.object({
+  email: yup
     .string()
-    .required('Risk profile is required')
-    .oneOf(['conservative', 'moderate', 'aggressive'], 'Invalid risk profile'),
-  fundId: yup
+    .required('Email is required')
+    .email('Enter a valid email address'),
+  password: yup
     .string()
-    .required('Please select a fund'),
-  startDate: yup
-    .date()
-    .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past')
+    .required('Password is required')
+    .min(8, 'Password must be at least 8 characters')
 })
 
-const InvestmentForm = ({ onSubmit, loading = false, selectedFund }) => {
+const LoginForm = ({ onSubmit, loading = false, submitError }) => {
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid },
-    watch,
-    setValue
+    formState: { errors, isSubmitting }
   } = useForm({
-    resolver: yupResolver(investmentSchema),
+    resolver: yupResolver(loginSchema),
     defaultValues: {
-      amount: '',
-      duration: 12,
-      riskProfile: 'moderate',
-      fundId: selectedFund?.id || '',
-      startDate: new Date().toISOString().split('T')[0]
+      email: '',
+      password: ''
     }
   })
 
-  const watchedAmount = watch('amount')
-  const watchedDuration = watch('duration')
-
   const handleFormSubmit = async (data) => {
-    try {
-      await onSubmit(data)
-    } catch (error) {
-      console.error('Form submission error:', error)
-    }
+    // deviceId/deviceType are appended by the container, not typed by the
+    // user — this component only owns email/password.
+    await onSubmit(data)
   }
 
   return (
     <Box component="form" onSubmit={handleSubmit(handleFormSubmit)}>
       <Typography variant="h6" gutterBottom>
-        Investment Details
+        Log in to Rhynk
       </Typography>
-      
-      {selectedFund && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Selected Fund: {selectedFund.name}
+
+      {submitError === 'EMAIL_NOT_VERIFIED' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Your email isn't verified yet. Check your inbox for the OTP.
         </Alert>
       )}
-      
-      {/* Investment Amount */}
-      <Controller
-        name="amount"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Investment Amount (₹)"
-            type="number"
-            error={!!errors.amount}
-            helperText={errors.amount?.message}
-            fullWidth
-            margin="normal"
-            InputProps={{
-              startAdornment: <Typography>₹</Typography>
-            }}
-          />
-        )}
-      />
 
-      {/* Duration */}
-      <Controller
-        name="duration"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Duration (months)"
-            type="number"
-            error={!!errors.duration}
-            helperText={errors.duration?.message}
-            fullWidth
-            margin="normal"
-          />
-        )}
-      />
-
-      {/* Risk Profile */}
-      <Controller
-        name="riskProfile"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth margin="normal" error={!!errors.riskProfile}>
-            <InputLabel>Risk Profile</InputLabel>
-            <Select {...field} label="Risk Profile">
-              <MenuItem value="conservative">Conservative</MenuItem>
-              <MenuItem value="moderate">Moderate</MenuItem>
-              <MenuItem value="aggressive">Aggressive</MenuItem>
-            </Select>
-            {errors.riskProfile && (
-              <Typography variant="caption" color="error">
-                {errors.riskProfile.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      {/* Start Date */}
-      <Controller
-        name="startDate"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Start Date"
-            type="date"
-            error={!!errors.startDate}
-            helperText={errors.startDate?.message}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-          />
-        )}
-      />
-
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        variant="contained"
-        fullWidth
-        disabled={isSubmitting || loading || !isValid}
-        sx={{ mt: 3, mb: 2 }}
-      >
-        {isSubmitting || loading ? 'Processing...' : 'Create Investment'}
-      </Button>
-    </Box>
-  )
-}
-
-export default InvestmentForm
-```
-
-### 3. Financial Form Examples
-
-#### KYC Form
-```javascript
-// src/components/forms/KYCForm.jsx
-import React from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import { kycSchema } from 'schemas/kycSchema'
-import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Stepper,
-  Step,
-  StepLabel,
-  Grid
-} from '@mui/material'
-
-const KYCForm = ({ control, errors, onNext, isValid }) => {
-  return (
-    <Box>
-      <Typography variant="h5" gutterBottom>
-        Personal Information
-      </Typography>
-      
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
-          <Controller
-            name="personalDetails.firstName"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="First Name"
-                error={!!errors.personalDetails?.firstName}
-                helperText={errors.personalDetails?.firstName?.message}
-                fullWidth
-                required
-              />
-            )}
-          />
-        </Grid>
-        
-        <Grid item xs={12} sm={6}>
-          <Controller
-            name="personalDetails.lastName"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Last Name"
-                error={!!errors.personalDetails?.lastName}
-                helperText={errors.personalDetails?.lastName?.message}
-                fullWidth
-                required
-              />
-            )}
-          />
-        </Grid>
-        
-        <Grid item xs={12} sm={6}>
-          <Controller
-            name="personalDetails.dateOfBirth"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Date of Birth"
-                type="date"
-                error={!!errors.personalDetails?.dateOfBirth}
-                helperText={errors.personalDetails?.dateOfBirth?.message}
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-              />
-            )}
-          />
-        </Grid>
-        
-        <Grid item xs={12} sm={6}>
-          <Controller
-            name="personalDetails.panNumber"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="PAN Number"
-                error={!!errors.personalDetails?.panNumber}
-                helperText={errors.personalDetails?.panNumber?.message}
-                fullWidth
-                required
-                placeholder="ABCDE1234F"
-              />
-            )}
-          />
-        </Grid>
-      </Grid>
-      
-      <Button
-        variant="contained"
-        onClick={onNext}
-        disabled={!isValid}
-        sx={{ mt: 3 }}
-      >
-        Next
-      </Button>
-    </Box>
-  )
-}
-
-export default KYCForm
-```
-
-#### SIP Order Form
-```javascript
-// src/components/forms/SIPOrderForm.jsx
-import React from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import { sipOrderSchema } from 'schemas/sipOrderSchema'
-import {
-  Box,
-  TextField,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-  Alert,
-  FormControlLabel,
-  Checkbox
-} from '@mui/material'
-
-const SIPOrderForm = ({ onSubmit, loading = false, selectedFund }) => {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    watch
-  } = useForm({
-    resolver: yupResolver(sipOrderSchema),
-    defaultValues: {
-      fundId: selectedFund?.id || '',
-      amount: '',
-      frequency: 'monthly',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: '',
-      autoDebit: true,
-      bankAccountId: ''
-    }
-  })
-
-  const autoDebit = watch('autoDebit')
-
-  return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-      <Typography variant="h6" gutterBottom>
-        SIP Order Details
-      </Typography>
-      
-      {selectedFund && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Fund: {selectedFund.name} (NAV: ₹{selectedFund.nav})
+      {submitError === 'INVALID_CREDENTIALS' && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Incorrect email or password.
         </Alert>
       )}
-      
-      {/* SIP Amount */}
+
       <Controller
-        name="amount"
+        name="email"
         control={control}
         render={({ field }) => (
           <TextField
             {...field}
-            label="SIP Amount (₹)"
-            type="number"
-            error={!!errors.amount}
-            helperText={errors.amount?.message}
+            label="Email"
+            type="email"
+            error={!!errors.email}
+            helperText={errors.email?.message}
             fullWidth
             margin="normal"
-            InputProps={{
-              startAdornment: <Typography>₹</Typography>
-            }}
           />
         )}
       />
 
-      {/* Frequency */}
       <Controller
-        name="frequency"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth margin="normal" error={!!errors.frequency}>
-            <InputLabel>SIP Frequency</InputLabel>
-            <Select {...field} label="SIP Frequency">
-              <MenuItem value="monthly">Monthly</MenuItem>
-              <MenuItem value="quarterly">Quarterly</MenuItem>
-              <MenuItem value="yearly">Yearly</MenuItem>
-            </Select>
-            {errors.frequency && (
-              <Typography variant="caption" color="error">
-                {errors.frequency.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      {/* Start Date */}
-      <Controller
-        name="startDate"
+        name="password"
         control={control}
         render={({ field }) => (
           <TextField
             {...field}
-            label="Start Date"
-            type="date"
-            error={!!errors.startDate}
-            helperText={errors.startDate?.message}
+            label="Password"
+            type="password"
+            error={!!errors.password}
+            helperText={errors.password?.message}
             fullWidth
             margin="normal"
-            InputLabelProps={{ shrink: true }}
           />
         )}
       />
 
-      {/* End Date */}
-      <Controller
-        name="endDate"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="End Date (Optional)"
-            type="date"
-            error={!!errors.endDate}
-            helperText={errors.endDate?.message}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-          />
-        )}
-      />
-
-      {/* Auto Debit */}
-      <Controller
-        name="autoDebit"
-        control={control}
-        render={({ field }) => (
-          <FormControlLabel
-            control={
-              <Checkbox
-                {...field}
-                checked={field.value}
-              />
-            }
-            label="Enable Auto Debit"
-          />
-        )}
-      />
-
-      {/* Bank Account (conditional) */}
-      {autoDebit && (
-        <Controller
-          name="bankAccountId"
-          control={control}
-          render={({ field }) => (
-            <FormControl fullWidth margin="normal" error={!!errors.bankAccountId}>
-              <InputLabel>Bank Account</InputLabel>
-              <Select {...field} label="Bank Account">
-                {/* Bank accounts will be populated from API */}
-                <MenuItem value="account1">HDFC Bank - ****1234</MenuItem>
-                <MenuItem value="account2">ICICI Bank - ****5678</MenuItem>
-              </Select>
-              {errors.bankAccountId && (
-                <Typography variant="caption" color="error">
-                  {errors.bankAccountId.message}
-                </Typography>
-              )}
-            </FormControl>
-          )}
-        />
-      )}
-
-      {/* Submit Button */}
       <Button
         type="submit"
         variant="contained"
@@ -480,127 +126,169 @@ const SIPOrderForm = ({ onSubmit, loading = false, selectedFund }) => {
         disabled={isSubmitting || loading}
         sx={{ mt: 3, mb: 2 }}
       >
-        {isSubmitting || loading ? 'Creating SIP...' : 'Create SIP Order'}
+        {isSubmitting || loading ? 'Logging in…' : 'Log In'}
       </Button>
     </Box>
   )
 }
 
-export default SIPOrderForm
+export default LoginForm
+```
+
+### 3. Rhynk Form Example — OTP Verification
+
+`POST /auth/verify-otp` expects `{ email, otp: "^[0-9]{6}$", deviceId,
+deviceType }` and returns `{ accessToken, refreshToken, user }`. Key errors:
+`OTP_INVALID` (400), `USER_NOT_FOUND` (404). The 6-digit constraint should be
+enforced by both the input mask and the Yup schema.
+
+```javascript
+// src/components/auth/OtpVerificationForm.jsx
+import React from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import { otpSchema } from 'schemas/otpSchema'
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Alert
+} from '@mui/material'
+
+const OtpVerificationForm = ({ email, onSubmit, onResend, loading = false, submitError }) => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting }
+  } = useForm({
+    resolver: yupResolver(otpSchema),
+    defaultValues: { otp: '' }
+  })
+
+  return (
+    <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+      <Typography variant="h6" gutterBottom>
+        Verify your email
+      </Typography>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Enter the 6-digit code sent to {email}
+      </Typography>
+
+      {submitError === 'OTP_INVALID' && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          That code is invalid or has expired.
+        </Alert>
+      )}
+
+      <Controller
+        name="otp"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="6-digit code"
+            inputProps={{ maxLength: 6, inputMode: 'numeric', pattern: '[0-9]*' }}
+            error={!!errors.otp}
+            helperText={errors.otp?.message}
+            fullWidth
+            margin="normal"
+          />
+        )}
+      />
+
+      <Button
+        type="submit"
+        variant="contained"
+        fullWidth
+        disabled={isSubmitting || loading}
+        sx={{ mt: 2, mb: 1 }}
+      >
+        {isSubmitting || loading ? 'Verifying…' : 'Verify'}
+      </Button>
+
+      <Button variant="text" fullWidth onClick={onResend}>
+        Resend code
+      </Button>
+    </Box>
+  )
+}
+
+export default OtpVerificationForm
 ```
 
 ### 4. Validation Schema Examples
 
-#### Investment Schema
 ```javascript
-// src/schemas/investmentSchema.js
+// src/schemas/loginSchema.js
 import * as yup from 'yup'
 
-export const investmentSchema = yup.object({
-  amount: yup
-    .number()
-    .required('Investment amount is required')
-    .min(500, 'Minimum investment is ₹500')
-    .max(1000000, 'Maximum investment is ₹10,00,000'),
-  duration: yup
-    .number()
-    .required('Duration is required')
-    .min(1, 'Minimum duration is 1 month')
-    .max(60, 'Maximum duration is 60 months'),
-  riskProfile: yup
-    .string()
-    .required('Risk profile is required')
-    .oneOf(['conservative', 'moderate', 'aggressive'], 'Invalid risk profile'),
-  fundId: yup
-    .string()
-    .required('Please select a fund'),
-  startDate: yup
-    .date()
-    .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past')
+export const loginSchema = yup.object({
+  email: yup.string().required('Email is required').email('Enter a valid email address'),
+  password: yup.string().required('Password is required').min(8, 'Password must be at least 8 characters')
 })
 ```
 
-#### KYC Schema
 ```javascript
-// src/schemas/kycSchema.js
+// src/schemas/otpSchema.js
 import * as yup from 'yup'
 
-export const kycSchema = yup.object({
-  personalDetails: yup.object({
-    firstName: yup
-      .string()
-      .required('First name is required')
-      .min(2, 'First name must be at least 2 characters')
-      .max(50, 'First name must be less than 50 characters'),
-    lastName: yup
-      .string()
-      .required('Last name is required')
-      .min(2, 'Last name must be at least 2 characters')
-      .max(50, 'Last name must be less than 50 characters'),
-    dateOfBirth: yup
-      .date()
-      .required('Date of birth is required')
-      .max(new Date(), 'Date of birth cannot be in the future'),
-    panNumber: yup
-      .string()
-      .required('PAN number is required')
-      .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'),
-    aadhaarNumber: yup
-      .string()
-      .required('Aadhaar number is required')
-      .matches(/^[0-9]{12}$/, 'Aadhaar number must be 12 digits')
-  }),
-  address: yup.object({
-    line1: yup.string().required('Address line 1 is required'),
-    line2: yup.string(),
-    city: yup.string().required('City is required'),
-    state: yup.string().required('State is required'),
-    pincode: yup
-      .string()
-      .required('Pincode is required')
-      .matches(/^[0-9]{6}$/, 'Pincode must be 6 digits'),
-    country: yup.string().default('India')
-  }),
-  bankDetails: yup.object({
-    accountNumber: yup
-      .string()
-      .required('Account number is required')
-      .min(9, 'Account number must be at least 9 digits')
-      .max(18, 'Account number must be less than 18 digits'),
-    ifscCode: yup
-      .string()
-      .required('IFSC code is required')
-      .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format'),
-    accountHolderName: yup
-      .string()
-      .required('Account holder name is required')
-  })
+export const otpSchema = yup.object({
+  otp: yup
+    .string()
+    .required('Enter the code sent to your email')
+    .matches(/^[0-9]{6}$/, 'Code must be exactly 6 digits')
+})
+```
+
+```javascript
+// src/schemas/registerSchema.js
+import * as yup from 'yup'
+
+// Matches POST /auth/register: { username, email, password }
+export const registerSchema = yup.object({
+  username: yup
+    .string()
+    .required('Username is required')
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be less than 30 characters'),
+  email: yup.string().required('Email is required').email('Enter a valid email address'),
+  password: yup
+    .string()
+    .required('Password is required')
+    .min(8, 'Password must be at least 8 characters')
 })
 ```
 
 ### 5. Form Requirements Checklist
 
 #### ✅ Basic Requirements
-- [ ] Use React Hook Form for form management
-- [ ] Include Yup validation schema
+- [ ] Use React Hook Form for form management (verify it's installed first)
+- [ ] Include Yup validation schema (verify it's installed first)
 - [ ] Use Controller for MUI components
-- [ ] Add proper error handling and display
+- [ ] Add proper error handling and display, including server-returned error
+      codes (`EMAIL_TAKEN`, `OTP_INVALID`, `INVALID_CREDENTIALS`,
+      `EMAIL_NOT_VERIFIED`, etc. — see the auth-security rules for the full
+      list) rather than generic messages
 - [ ] Include loading states during submission
-- [ ] Disable submit button when form is invalid
+- [ ] Disable submit button while submitting
 
-#### ✅ Financial Form Specific
-- [ ] Use currency formatting for monetary inputs
-- [ ] Include proper validation for financial data
-- [ ] Add clear error messages for validation failures
-- [ ] Include confirmation steps for critical actions
-- [ ] Add data masking for sensitive information
+#### ✅ Auth Form Specific
+- [ ] Match the documented request/response shape exactly — don't invent
+      field names (`deviceId`/`deviceType` are appended by the container,
+      not entered by the user)
+- [ ] Never log or persist the raw password/OTP outside the form's own state
+- [ ] Surface `OTP_COOLDOWN` (429) as a disabled "resend" button with a
+      countdown, not a silent failure
+- [ ] Use `sonner` toasts (already installed) for transient success/failure
+      feedback, not a custom MUI `Snackbar`
 
 #### ✅ User Experience
 - [ ] Provide clear field labels and placeholders
 - [ ] Include helpful text and examples
-- [ ] Add progress indicators for multi-step forms
-- [ ] Include save draft functionality where appropriate
+- [ ] Add progress indicators for multi-step forms (e.g. register → OTP →
+      logged in)
 - [ ] Add form reset functionality
 - [ ] Use MUI SX prop for all styling needs
 
@@ -609,69 +297,56 @@ export const kycSchema = yup.object({
 - [ ] Ensure keyboard navigation works
 - [ ] Add screen reader support
 - [ ] Include proper focus management
-- [ ] Test with accessibility tools
 
-### 6. Testing Template
+### 6. Testing
+
+No test runner (Vitest/Jest) is configured in this repo yet — the template
+below is the intended shape once one is added, not something that runs today.
+
 ```javascript
-// src/components/forms/__tests__/InvestmentForm.test.jsx
+// src/components/auth/__tests__/LoginForm.test.jsx
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import InvestmentForm from '../InvestmentForm'
+import LoginForm from '../LoginForm'
 
-describe('InvestmentForm', () => {
+describe('LoginForm', () => {
   it('validates required fields', async () => {
     const user = userEvent.setup()
     const mockSubmit = jest.fn()
-    
-    render(<InvestmentForm onSubmit={mockSubmit} />)
-    
-    const submitButton = screen.getByRole('button', { name: /create investment/i })
+
+    render(<LoginForm onSubmit={mockSubmit} />)
+
+    const submitButton = screen.getByRole('button', { name: /log in/i })
     await user.click(submitButton)
-    
-    expect(screen.getByText('Investment amount is required')).toBeInTheDocument()
-    expect(screen.getByText('Duration is required')).toBeInTheDocument()
+
+    expect(screen.getByText('Email is required')).toBeInTheDocument()
+    expect(screen.getByText('Password is required')).toBeInTheDocument()
     expect(mockSubmit).not.toHaveBeenCalled()
   })
 
-  it('submits form with valid data', async () => {
+  it('submits form with valid credentials', async () => {
     const user = userEvent.setup()
     const mockSubmit = jest.fn()
-    
-    render(<InvestmentForm onSubmit={mockSubmit} />)
-    
-    await user.type(screen.getByLabelText(/investment amount/i), '10000')
-    await user.type(screen.getByLabelText(/duration/i), '12')
-    await user.selectOptions(screen.getByLabelText(/risk profile/i), 'moderate')
-    
-    const submitButton = screen.getByRole('button', { name: /create investment/i })
-    await user.click(submitButton)
-    
+
+    render(<LoginForm onSubmit={mockSubmit} />)
+
+    await user.type(screen.getByLabelText(/email/i), 'nova@rhynk.app')
+    await user.type(screen.getByLabelText(/password/i), 'correcthorsebattery')
+
+    await user.click(screen.getByRole('button', { name: /log in/i }))
+
     await waitFor(() => {
       expect(mockSubmit).toHaveBeenCalledWith({
-        amount: 10000,
-        duration: 12,
-        riskProfile: 'moderate',
-        fundId: '',
-        startDate: expect.any(String)
+        email: 'nova@rhynk.app',
+        password: 'correcthorsebattery'
       })
     })
   })
 
-  it('shows loading state during submission', async () => {
-    const user = userEvent.setup()
-    const mockSubmit = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)))
-    
-    render(<InvestmentForm onSubmit={mockSubmit} />)
-    
-    await user.type(screen.getByLabelText(/investment amount/i), '10000')
-    await user.type(screen.getByLabelText(/duration/i), '12')
-    
-    const submitButton = screen.getByRole('button', { name: /create investment/i })
-    await user.click(submitButton)
-    
-    expect(screen.getByText('Processing...')).toBeInTheDocument()
-    expect(submitButton).toBeDisabled()
+  it('shows the EMAIL_NOT_VERIFIED alert', () => {
+    render(<LoginForm onSubmit={jest.fn()} submitError="EMAIL_NOT_VERIFIED" />)
+    expect(screen.getByText(/isn't verified yet/i)).toBeInTheDocument()
   })
 })
 ```

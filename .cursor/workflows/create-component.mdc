@@ -3,204 +3,171 @@
 ## Component Creation Checklist
 
 ### 1. File Structure
-- **Location**: `src/components/` for regular components, `src/components/mui/` for MUI wrappers
-- **Naming**: PascalCase with `Component` suffix
-- **Example**: `FundCardComponent.jsx`, `AppButtonComponent.jsx`
-- **Pattern**: Components are props-based only, NO business logic
+- **Location**: `src/components/<domain>/` for dumb, props-based UI
+  (`auth/`, `calls/`, `conversations/`, `groups/`, `messages/`, `music-rooms/`,
+  `notifications/`, `profile/`, `songs/`, `stories/`), `src/components/common/`
+  for cross-domain dumb primitives, `src/components/mui/` for MUI wrappers
+  (see [[create-mui-wrapper]]).
+- **Naming**: PascalCase, `.jsx` extension — one component per file, file name
+  matches the default export (see the project's naming rules). A `Component`
+  suffix is used for MUI wrappers under `components/mui/`; domain components
+  don't need the suffix (`MessageBubble.jsx`, not `MessageBubbleComponent.jsx`).
+- **Pattern**: Components are props-based only, **no business logic** — no
+  `fetch`/RTK Query hook calls, no `useSelector`/`useDispatch`. Data and
+  callbacks come from the matching container in
+  `src/features/containers/<domain>/`.
 
 ### 2. Component Template
 ```javascript
-// src/components/common/FundCardComponent.jsx
+// src/components/messages/MessageBubble.jsx
 import React, { memo } from 'react'
-import { Card, CardContent, Typography, Chip, Box } from '@mui/material'
+import { Box, Typography, Avatar } from '@mui/material'
 import PropTypes from 'prop-types'
-import { formatCurrency } from 'utils/currency.utils'
 
 // Component scope
-const RISK_COLORS = {
-  Low: 'success',
-  Moderate: 'warning', 
-  High: 'error'
-}
+const BUBBLE_MAX_WIDTH = '70%'
 
-const FundCardComponent = ({ 
-  fund, 
-  onSelect, 
-  isSelected = false,
-  showDetails = true 
+const MessageBubble = ({
+  message,
+  isOwnMessage,
+  showAvatar = true
 }) => {
   // States, refs, selectors, RTK Query hooks
   // (None for this component - it's props-based only)
-  
+
   // useEffect hooks
   // (None for this component)
-  
-  // Other functions and logic
-  const handleClick = () => {
-    onSelect?.(fund.id)
-  }
 
-  const getRiskColor = (riskLevel) => {
-    return RISK_COLORS[riskLevel] || 'default'
+  // Other functions and logic
+  const formatTimestamp = (isoString) => {
+    return new Date(isoString).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   // Return/rendering
   return (
-    <Card
-      onClick={handleClick}
+    <Box
       sx={{
-        cursor: 'pointer',
-        border: isSelected ? '2px solid #1976d2' : '1px solid #e0e0e0',
-        transition: 'all 0.2s ease-in-out',
-        '&:hover': {
-          boxShadow: 2,
-          transform: 'translateY(-2px)'
-        }
+        display: 'flex',
+        flexDirection: isOwnMessage ? 'row-reverse' : 'row',
+        alignItems: 'flex-end',
+        gap: 1,
+        mb: 1
       }}
     >
-      <CardContent>
-        <Typography variant="h6" component="h3" gutterBottom>
-          {fund.name}
-        </Typography>
-        
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="body2" color="text.secondary">
-            NAV
-          </Typography>
-          <Typography variant="h6" fontWeight="bold">
-            {formatCurrency(fund.nav)}
-          </Typography>
-        </Box>
+      {showAvatar && !isOwnMessage && (
+        <Avatar src={message.sender.avatarUrl} sx={{ width: 28, height: 28 }} />
+      )}
 
-        {showDetails && (
-          <>
-            <Chip 
-              label={fund.category} 
-              size="small" 
-              color="primary" 
-              sx={{ mb: 1 }}
-            />
-            
-            <Typography 
-              variant="caption" 
-              color="text.secondary"
-              display="block"
-            >
-              Risk: {fund.riskLevel} • Returns: {fund.returns}%
-            </Typography>
-          </>
-        )}
-      </CardContent>
-    </Card>
+      <Box
+        sx={{
+          maxWidth: BUBBLE_MAX_WIDTH,
+          px: 1.5,
+          py: 1,
+          borderRadius: 2,
+          bgcolor: isOwnMessage ? 'primary.main' : 'background.paper',
+          color: isOwnMessage ? 'primary.contrastText' : 'text.primary'
+        }}
+      >
+        <Typography variant="body2">{message.content}</Typography>
+
+        <Typography
+          variant="caption"
+          sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}
+        >
+          {formatTimestamp(message.createdAt)}
+        </Typography>
+      </Box>
+    </Box>
   )
 }
 
-FundCardComponent.propTypes = {
-  fund: PropTypes.shape({
+MessageBubble.propTypes = {
+  message: PropTypes.shape({
     id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    nav: PropTypes.number.isRequired,
-    category: PropTypes.string.isRequired,
-    riskLevel: PropTypes.string.isRequired,
-    returns: PropTypes.number.isRequired
+    content: PropTypes.string.isRequired,
+    createdAt: PropTypes.string.isRequired,
+    sender: PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      displayName: PropTypes.string.isRequired,
+      avatarUrl: PropTypes.string
+    }).isRequired
   }).isRequired,
-  onSelect: PropTypes.func,
-  isSelected: PropTypes.bool,
-  showDetails: PropTypes.bool
+  isOwnMessage: PropTypes.bool.isRequired,
+  showAvatar: PropTypes.bool
 }
 
-FundCardComponent.defaultProps = {
-  isSelected: false,
-  showDetails: true
-}
-
-export default memo(FundCardComponent)
+export default memo(MessageBubble)
 ```
 
-### 3. Financial Component Example
+> Note on PropTypes: `prop-types` is not currently in `package.json` — verify
+> it's actually installed before writing `PropTypes.shape(...)` blocks like
+> the one above; if it isn't installed yet, that's a gap to flag, not silently
+> work around.
+
+### 3. Music Room Component Example
 ```javascript
-// src/components/investment/FundCard.component.jsx
+// src/components/music-rooms/RoomMemberCard.jsx
 import React, { memo } from 'react'
-import { Card, CardContent, Typography, Chip, Box } from '@mui/material'
+import { Card, CardContent, Typography, Avatar, Box } from '@mui/material'
 import PropTypes from 'prop-types'
-import { formatCurrency } from 'utils/currency'
 
-const FundCard = ({ 
-  fund, 
-  onSelect, 
-  isSelected = false,
-  showDetails = true 
+const RoomMemberCard = ({
+  member,
+  isDj = false,
+  isSpeaking = false
 }) => {
-  const handleClick = () => {
-    onSelect?.(fund.id)
-  }
-
   return (
     <Card
-      onClick={handleClick}
       sx={{
-        cursor: 'pointer',
-        border: isSelected ? '2px solid #1976d2' : '1px solid #e0e0e0',
-        transition: 'all 0.2s ease-in-out',
-        '&:hover': {
-          boxShadow: 2,
-          transform: 'translateY(-2px)'
-        }
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        p: 1.5,
+        borderRadius: 2,
+        border: isDj ? '2px solid' : '1px solid',
+        borderColor: isDj ? 'primary.main' : 'divider',
+        transition: 'all 0.2s ease-in-out'
       }}
     >
-      <CardContent>
-        <Typography variant="h6" component="h3" gutterBottom>
-          {fund.name}
-        </Typography>
-        
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="body2" color="text.secondary">
-            NAV
-          </Typography>
-          <Typography variant="h6" fontWeight="bold">
-            {formatCurrency(fund.nav)}
-          </Typography>
-        </Box>
+      <Avatar
+        src={member.avatarUrl}
+        sx={{
+          width: 40,
+          height: 40,
+          outline: isSpeaking ? '2px solid' : 'none',
+          outlineColor: 'success.main'
+        }}
+      />
 
-        {showDetails && (
-          <>
-            <Chip 
-              label={fund.category} 
-              size="small" 
-              color="primary" 
-              sx={{ mb: 1 }}
-            />
-            
-            <Typography variant="caption" color="text.secondary">
-              Risk: {fund.riskLevel} • Returns: {fund.returns}%
-            </Typography>
-          </>
+      <CardContent sx={{ p: '0 !important' }}>
+        <Typography variant="body2" sx={{ fontWeight: isDj ? 600 : 400 }}>
+          {member.displayName}
+        </Typography>
+
+        {isDj && (
+          <Typography variant="caption" color="primary.main">
+            DJ
+          </Typography>
         )}
       </CardContent>
     </Card>
   )
 }
 
-FundCard.propTypes = {
-  fund: PropTypes.shape({
+RoomMemberCard.propTypes = {
+  member: PropTypes.shape({
     id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    nav: PropTypes.number.isRequired,
-    category: PropTypes.string.isRequired,
-    riskLevel: PropTypes.string.isRequired,
-    returns: PropTypes.number.isRequired
+    displayName: PropTypes.string.isRequired,
+    avatarUrl: PropTypes.string
   }).isRequired,
-  onSelect: PropTypes.func,
-  isSelected: PropTypes.bool,
-  showDetails: PropTypes.bool
+  isDj: PropTypes.bool,
+  isSpeaking: PropTypes.bool
 }
 
-FundCard.defaultProps = {
-  isSelected: false,
-  showDetails: true
-}
-
-export default memo(FundCard)
+export default memo(RoomMemberCard)
 ```
 
 ### 4. Component Requirements Checklist
@@ -208,27 +175,35 @@ export default memo(FundCard)
 #### ✅ Basic Requirements
 - [ ] Use functional component with hooks only
 - [ ] Add React.memo for performance
-- [ ] Include PropTypes with proper validation
-- [ ] Provide default props where appropriate
-- [ ] Use absolute imports (`utils/`, `components/`)
+- [ ] Include PropTypes with proper validation (once `prop-types` is
+      installed — verify via `package.json`)
+- [ ] Provide default values via destructured default parameters, not
+      `Component.defaultProps` (deprecated for function components)
+- [ ] Use absolute imports once the alias is configured (see the
+      architecture rules — `resolve.alias`/`jsconfig.json` don't exist yet)
 - [ ] Keep component under 300 lines
 
 #### ✅ MUI Integration
 - [ ] Use MUI components as base
-- [ ] Apply consistent styling with SX prop only
-- [ ] Include proper theme integration
+- [ ] Apply consistent styling with SX prop only — no Tailwind classes,
+      no inline `style` objects
+- [ ] Include proper theme integration once `src/theme/index.js` exists
 - [ ] Add hover and focus states with SX
 - [ ] Ensure accessibility (ARIA labels, roles)
 - [ ] Use MUI's responsive breakpoint system
 
-#### ✅ Financial App Specific
-- [ ] Use `formatCurrency` for monetary values
-- [ ] Include proper error handling
-- [ ] Add loading states where needed
-- [ ] Consider mobile responsiveness
-- [ ] Include proper data validation
+#### ✅ Rhynk Specific
+- [ ] No DJ-only music-room controls rendered for non-DJ members (hide, don't
+      just disable) — but remember this is UX only, the server enforces it
+- [ ] Handle empty/loading states gracefully for lists (conversations,
+      messages, queue) since these components receive already-fetched data
+- [ ] Consider mobile responsiveness with MUI breakpoints
+- [ ] Include proper data validation for props (message/room/song shapes)
 
 #### ✅ Testing
+No test runner (Vitest/Jest) is configured in this repo yet — treat the
+template below as the target shape once one is introduced, not as something
+that runs today.
 - [ ] Create test file: `__tests__/ComponentName.test.jsx`
 - [ ] Test rendering with different props
 - [ ] Test user interactions (clicks, hovers)
@@ -237,45 +212,33 @@ export default memo(FundCard)
 
 ### 5. Test Template
 ```javascript
-// src/components/__tests__/FundCard.test.jsx
+// src/components/messages/__tests__/MessageBubble.test.jsx
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import FundCard from '../FundCard'
+import { render, screen } from '@testing-library/react'
+import MessageBubble from '../MessageBubble'
 
-const mockFund = {
-  id: '1',
-  name: 'HDFC Equity Fund',
-  nav: 150.25,
-  category: 'Equity',
-  riskLevel: 'High',
-  returns: 12.5
+const mockMessage = {
+  id: 'msg-1',
+  content: 'Hey, check out this track!',
+  createdAt: '2026-07-12T10:00:00.000Z',
+  sender: {
+    id: 'user-1',
+    displayName: 'Nova',
+    avatarUrl: null
+  }
 }
 
-describe('FundCard', () => {
-  it('renders fund information correctly', () => {
-    render(<FundCard fund={mockFund} />)
-    
-    expect(screen.getByText('HDFC Equity Fund')).toBeInTheDocument()
-    expect(screen.getByText('₹150.25')).toBeInTheDocument()
-    expect(screen.getByText('Equity')).toBeInTheDocument()
+describe('MessageBubble', () => {
+  it('renders message content correctly', () => {
+    render(<MessageBubble message={mockMessage} isOwnMessage={false} />)
+
+    expect(screen.getByText('Hey, check out this track!')).toBeInTheDocument()
   })
 
-  it('calls onSelect when clicked', async () => {
-    const user = userEvent.setup()
-    const mockOnSelect = jest.fn()
-    
-    render(<FundCard fund={mockFund} onSelect={mockOnSelect} />)
-    
-    await user.click(screen.getByRole('button'))
-    expect(mockOnSelect).toHaveBeenCalledWith('1')
-  })
+  it('aligns own messages to the right', () => {
+    render(<MessageBubble message={mockMessage} isOwnMessage={true} />)
 
-  it('shows selected state when isSelected is true', () => {
-    render(<FundCard fund={mockFund} isSelected={true} />)
-    
-    const card = screen.getByRole('button')
-    expect(card).toHaveStyle('border: 2px solid #1976d2')
+    expect(screen.getByText(mockMessage.content)).toBeInTheDocument()
   })
 })
 ```
@@ -289,9 +252,9 @@ describe('FundCard', () => {
 - `AppRadioGroup` - Enhanced MUI RadioGroup
 
 #### Display Components
-- `CurrencyDisplay` - Formatted currency display
-- `PercentageDisplay` - Formatted percentage display
-- `DateDisplay` - Formatted date display
+- `PresenceDot` - Online/away/offline indicator
+- `TypingIndicator` - "X is typing…" display
+- `TimestampDisplay` - Formatted relative time display
 - `LoadingSpinner` - Consistent loading indicator
 
 #### Layout Components
@@ -300,19 +263,19 @@ describe('FundCard', () => {
 - `AppDialog` - Standardized dialog component
 - `AppTooltip` - Standardized tooltip component
 
-#### Financial Components
-- `FundCard` - Mutual fund display card
-- `PortfolioSummary` - Portfolio overview
-- `SIPCalculator` - SIP calculation widget
-- `PerformanceChart` - Investment performance chart
+#### Rhynk Domain Components
+- `MessageBubble` - Single chat message display
+- `RoomMemberCard` - Music-room member/DJ display
+- `SongQueueItem` - Queued track row in a music room
+- `StoryRing` - Story avatar with unseen/seen ring state
 
 ### 7. Export Pattern
 ```javascript
 // src/components/common/index.js
-export { default as AppButton } from './AppButton.component'
-export { default as AppTextField } from './AppTextField.component'
-export { default as AppCard } from './AppCard.component'
-export { default as AppModal } from './AppModal.component'
+export { default as AppButton } from './AppButton'
+export { default as AppTextField } from './AppTextField'
+export { default as AppCard } from './AppCard'
+export { default as AppModal } from './AppModal'
 
 // Usage
 import { AppButton, AppTextField } from 'components/common'

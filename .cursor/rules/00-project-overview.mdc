@@ -4,141 +4,105 @@ alwaysApply: false
 # Project Overview
 
 ## Application Context
-**Customer-facing mutual fund investment platform** providing comprehensive investment management, onboarding, and financial tracking capabilities.
+**Rhynk** — a chat + social-music web application ("Every Chat Has a
+Rhythm"): real-time messaging, music rooms with synchronized playback,
+voice/video calls, stories, and media sharing. This repo is the
+**frontend-only** client (split out of the original monorepo) — the backend
+(Fastify + Socket.IO) lives in a sibling repo and is not checked out here.
 
 ### Core Domains
-- **Customer Onboarding**: OTP-based authentication, KYC verification, risk assessment, bank linking
-- **Investment Management**: Mutual fund exploration, lumpsum/SIP orders, redemption, portfolio tracking
-- **Financial Integration**: Account aggregator integration, consolidated finance view
-- **Support & Communication**: Customer support requests, notifications, reports
+- **Auth & Onboarding**: registration with email OTP verification, login,
+  device-based multi-session tracking, token refresh/rotation
+- **Messaging**: 1:1 and group conversations, cursor-paginated message
+  history, typing indicators, read receipts, reactions
+- **Music Rooms**: synchronized group listening sessions, DJ-only playback
+  controls, dual music-provider adapter (JioSaavn primary, YouTube fallback)
+- **Calls**: voice/video calls relayed over Socket.IO (SDP/ICE only, no
+  media stored or decoded server-side)
+- **Social**: stories, profiles, groups, notifications
 
 ## Tech Stack
-- **Frontend**: React 19.1.0 with Vite 6.3.5
-- **Navigation**: React Router DOM v6.30.1
-- **State Management**: Redux Toolkit 2.8.2 + Redux Persist 6.0.0
-- **API Integration**: RTK Query (part of Redux Toolkit)
-- **UI Library**: MUI (Material-UI) with SX-based styling
-- **Charts**: AmCharts (free version)
-- **Animations**: Reactbits for micro interactions
-- **Forms**: React Hook Form 7.51.0 + Yup 1.3.3
-- **Hybrid Platform**: Capacitor.js (Android & iOS support)
-- **Security**: Crypto-js 4.2.0 for encryption
-- **Type Checking**: PropTypes (NO TypeScript)
+- **Frontend**: React 19.2.7 with Vite 8.1.1
+- **Navigation**: React Router DOM v7.18.1
+- **State Management**: Redux Toolkit 2.12.0 (RTK Query for server state) —
+  `react-redux ^9.3.0`. No Redux Persist installed yet.
+- **API Integration**: RTK Query's `fetchBaseQuery` (the intended base
+  query); `axios ^1.18.1` is installed but not wired to anything
+- **UI Library**: MUI (Material-UI) with SX-based styling —
+  `@mui/material`, `@mui/icons-material`, `@emotion/react`,
+  `@emotion/styled`. No Tailwind, no shadcn/Radix.
+- **Realtime**: `socket.io-client ^4.8.3` — installed but completely
+  unwired, no `src/app/socket.js` yet
+- **Toasts**: `sonner ^2.0.7`
+- **Type Checking**: plain JS/JSX (NO TypeScript). PropTypes is the
+  project's naming convention for prop validation, but `prop-types` is
+  **not yet in `package.json`** — install it when the first component
+  actually needs it, don't assume it's already available.
+
+Not installed, don't assume otherwise: React Hook Form, Yup, Capacitor.js,
+Redux Persist, crypto-js, AmCharts. If any of these get adopted later, that's
+a deliberate decision to update this doc alongside the install — don't build
+against them as if they already exist.
 
 ## Quick Reference
 
 ### Absolute Imports
-All imports use `src/` as baseUrl:
+Absolute imports are the target convention, but **not configured yet** — no
+`resolve.alias` in `vite.config.js`, no `jsconfig.json`. Set this up before
+writing the first absolute import.
+
 ```javascript
-// ✅ Correct
-import { formatCurrency } from 'utils/currency'
-import { LoginContainer } from 'containers/LoginContainer'
-import { Button } from 'components/common/Button'
+// ✅ Correct (once aliasing is configured)
+import { LoginContainer } from 'features/containers/auth/LoginContainer'
+import { AppButtonComponent } from 'components/mui/AppButtonComponent'
 
 // ❌ Avoid
-import { formatCurrency } from '../../../utils/currency'
+import { LoginContainer } from '../../../features/containers/auth/LoginContainer'
 ```
 
 ### File Structure
 ```
 src/
-├── assets/           # Static assets (images, icons)
-├── components/       # Reusable UI components (props-based only)
-│   ├── common/       # Shared components (Button, Modal, Input)
-│   ├── mui/          # MUI wrapper components
-│   └── layouts/      # Layout components (AuthLayout, MainLayout)
-├── containers/       # Container components (business logic, API, Redux)
-├── hooks/            # Custom React hooks (.hook.js)
-├── pages/            # Page components (minimal, delegate to containers)
-├── router/           # Routing configuration
-├── store/            # Redux store configuration
-│   ├── api/          # RTK Query API definitions (.apislice.js)
-│   ├── parsers/      # API response parsers
-│   └── slices/       # Redux slices (.slice.js)
-├── theme/            # Theme configuration and styling constants
-└── utils/            # Utility functions (.utils.js)
+├── assets/                    # Static assets (images, icons)
+├── components/                # Reusable UI components (props-based only)
+│   ├── auth/ calls/ conversations/ groups/ messages/ music-rooms/
+│   ├── notifications/ profile/ songs/ stories/
+│   ├── common/                # Cross-domain dumb primitives (buttons, modals, avatars)
+│   └── mui/                   # MUI wrapper components
+├── features/
+│   └── containers/            # Business logic, RTK Query hooks, Redux connections
+│       auth/ calls/ conversations/ groups/ messages/ music-rooms/
+│       notifications/ profile/ songs/ stories/
+├── layouts/                   # AppLayout, AuthLayout
+├── pages/                     # Route-level components, minimal logic
+├── router/                    # Routing configuration
+├── hooks/                     # Cross-feature custom hooks (flat, not per-feature)
+├── schemas/                   # Form/validation schemas (once a form library is chosen)
+├── theme/                     # MUI theme object (createTheme)
+├── config/                    # App-level config/constants
+└── store/
+    ├── api/                  # RTK Query endpoints (*.apislice.js)
+    ├── parsers/              # Pure functions transforming API responses (*.parsers.js)
+    ├── slices/               # Redux slices for client state (*.slice.js)
+    └── index.js              # configureStore
 ```
+
+Note the `components/<domain>/` + `features/containers/<domain>/` split —
+these are siblings, not nested inside one another the way some other
+generations of this pattern do it.
 
 ### File Naming Conventions
 - **JSX Files**: `LoginPage.jsx` → `LoginContainer.jsx` → `LoginFormComponent.jsx`
-- **Utility Files**: `date.utils.js`, `currency.utils.js`
-- **Redux Files**: `common.slice.js`, `investment.slice.js`
-- **API Files**: `auth.apislice.js`, `investment.apislice.js`
-- **Hook Files**: `usePrevious.hook.js`, `useAuth.hook.js`
+- **Redux Files**: `auth.slice.js`, `conversations.slice.js`, `musicRoom.slice.js`
+- **API Files**: `auth.apislice.js`, `conversations.apislice.js`
+- **Parser Files**: `auth.parsers.js`, `conversations.parsers.js`
+- **Hook Files**: `useAuthSession.js`, `useRoomSync.js`
 
 ### Common Patterns
-- **Financial Data**: Use `utils/currency.js` for amount formatting
-- **Authentication**: Check `utils/auth.js` for token management
-- **API Calls**: All through RTK Query in `store/api/`
-- **Forms**: Use React Hook Form + Yup validation
-- **Mobile**: Check Capacitor.js patterns for platform-specific code# Project Overview
-
-## Application Context
-**Customer-facing mutual fund investment platform** providing comprehensive investment management, onboarding, and financial tracking capabilities.
-
-### Core Domains
-- **Customer Onboarding**: OTP-based authentication, KYC verification, risk assessment, bank linking
-- **Investment Management**: Mutual fund exploration, lumpsum/SIP orders, redemption, portfolio tracking
-- **Financial Integration**: Account aggregator integration, consolidated finance view
-- **Support & Communication**: Customer support requests, notifications, reports
-
-## Tech Stack
-- **Frontend**: React 19.1.0 with Vite 6.3.5
-- **Navigation**: React Router DOM v6.30.1
-- **State Management**: Redux Toolkit 2.8.2 + Redux Persist 6.0.0
-- **API Integration**: RTK Query (part of Redux Toolkit)
-- **UI Library**: MUI (Material-UI) with SX-based styling
-- **Charts**: AmCharts (free version)
-- **Animations**: Reactbits for micro interactions
-- **Forms**: React Hook Form 7.51.0 + Yup 1.3.3
-- **Hybrid Platform**: Capacitor.js (Android & iOS support)
-- **Security**: Crypto-js 4.2.0 for encryption
-- **Type Checking**: PropTypes (NO TypeScript)
-
-## Quick Reference
-
-### Absolute Imports
-All imports use `src/` as baseUrl:
-```javascript
-// ✅ Correct
-import { formatCurrency } from 'utils/currency'
-import { LoginContainer } from 'containers/LoginContainer'
-import { Button } from 'components/common/Button'
-
-// ❌ Avoid
-import { formatCurrency } from '../../../utils/currency'
-```
-
-### File Structure
-```
-src/
-├── assets/           # Static assets (images, icons)
-├── components/       # Reusable UI components (props-based only)
-│   ├── common/       # Shared components (Button, Modal, Input)
-│   ├── mui/          # MUI wrapper components
-│   └── layouts/      # Layout components (AuthLayout, MainLayout)
-├── containers/       # Container components (business logic, API, Redux)
-├── hooks/            # Custom React hooks (.hook.js)
-├── pages/            # Page components (minimal, delegate to containers)
-├── router/           # Routing configuration
-├── store/            # Redux store configuration
-│   ├── api/          # RTK Query API definitions (.apislice.js)
-│   ├── parsers/      # API response parsers
-│   └── slices/       # Redux slices (.slice.js)
-├── theme/            # Theme configuration and styling constants
-└── utils/            # Utility functions (.utils.js)
-```
-
-### File Naming Conventions
-- **JSX Files**: `LoginPage.jsx` → `LoginContainer.jsx` → `LoginFormComponent.jsx`
-- **Utility Files**: `date.utils.js`, `currency.utils.js`
-- **Redux Files**: `common.slice.js`, `investment.slice.js`
-- **API Files**: `auth.apislice.js`, `investment.apislice.js`
-- **Hook Files**: `usePrevious.hook.js`, `useAuth.hook.js`
-
-### Common Patterns
-- **Financial Data**: Use `utils/currency.js` for amount formatting
-- **Authentication**: Check `utils/auth.js` for token management
-- **API Calls**: All through RTK Query in `store/api/`
-- **Forms**: Use React Hook Form + Yup validation
-- **Mobile**: Check Capacitor.js patterns for platform-specific code
+- **Authentication**: match `docs/AUTH_MODULE.md`'s 6-endpoint contract
+  exactly — see [[06-auth-security]]
+- **API Calls**: all through RTK Query in `store/api/`
+- **Music Rooms**: provider adapter pattern under
+  `features/music-room/providers/` (JioSaavn primary, YouTube fallback)
+- **Realtime**: Socket.IO event handling lives in containers, not in
+  `store/api/` (RTK Query is REST-only)

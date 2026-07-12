@@ -13,38 +13,36 @@ alwaysApply: false
 import React, { memo } from 'react'
 import PropTypes from 'prop-types'
 
-const FundCard = memo(({ fund, onSelect, isSelected }) => {
+const MessageBubble = memo(({ message, onReact, isOwnMessage }) => {
   return (
-    <Card 
-      onClick={() => onSelect(fund.id)}
-      sx={{ 
-        border: isSelected ? '2px solid #1976d2' : '1px solid #e0e0e0',
+    <Card
+      onClick={() => onReact(message.id)}
+      sx={{
+        alignSelf: isOwnMessage ? 'flex-end' : 'flex-start',
         cursor: 'pointer'
       }}
     >
       <CardContent>
-        <Typography variant="h6">{fund.name}</Typography>
-        <Typography variant="body2">NAV: ₹{fund.nav}</Typography>
-        <Typography variant="caption">{fund.category}</Typography>
+        <Typography variant="body2">{message.text}</Typography>
+        <Typography variant="caption">{message.formattedTime}</Typography>
       </CardContent>
     </Card>
   )
 })
 
-FundCard.propTypes = {
-  fund: PropTypes.shape({
+MessageBubble.propTypes = {
+  message: PropTypes.shape({
     id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    nav: PropTypes.number.isRequired,
-    category: PropTypes.string
+    text: PropTypes.string.isRequired,
+    formattedTime: PropTypes.string
   }).isRequired,
-  onSelect: PropTypes.func.isRequired,
-  isSelected: PropTypes.bool
+  onReact: PropTypes.func.isRequired,
+  isOwnMessage: PropTypes.bool
 }
 
-FundCard.displayName = 'FundCard'
+MessageBubble.displayName = 'MessageBubble'
 
-export default FundCard
+export default MessageBubble
 ```
 
 ### useCallback for Function Memoization
@@ -52,35 +50,30 @@ export default FundCard
 // ✅ Correct - Memoize callback functions
 import React, { useState, useCallback, memo } from 'react'
 
-const FundList = memo(({ funds, onFundSelect }) => {
-  const [selectedFundId, setSelectedFundId] = useState(null)
+const MessageList = memo(({ messages, onMessageReact }) => {
+  const [selectedMessageId, setSelectedMessageId] = useState(null)
 
-  // Memoize the selection handler
-  const handleFundSelect = useCallback((fundId) => {
-    setSelectedFundId(fundId)
-    onFundSelect?.(fundId)
-  }, [onFundSelect])
-
-  // Memoize the fund selection handler
-  const handleFundClick = useCallback((fund) => {
-    handleFundSelect(fund.id)
-  }, [handleFundSelect])
+  // Memoize the reaction handler
+  const handleMessageReact = useCallback((messageId) => {
+    setSelectedMessageId(messageId)
+    onMessageReact?.(messageId)
+  }, [onMessageReact])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {funds.map(fund => (
-        <FundCard
-          key={fund.id}
-          fund={fund}
-          isSelected={selectedFundId === fund.id}
-          onSelect={handleFundClick}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {messages.map(message => (
+        <MessageBubble
+          key={message.id}
+          message={message}
+          isOwnMessage={message.senderId === selectedMessageId}
+          onReact={handleMessageReact}
         />
       ))}
-    </div>
+    </Box>
   )
 })
 
-export default FundList
+export default MessageList
 ```
 
 ### useMemo for Expensive Calculations
@@ -88,62 +81,34 @@ export default FundList
 // ✅ Correct - Memoize expensive calculations
 import React, { useMemo } from 'react'
 
-const PortfolioSummary = ({ investments, marketData }) => {
-  // Memoize portfolio calculations
-  const portfolioStats = useMemo(() => {
-    if (!investments.length || !marketData) {
-      return {
-        totalValue: 0,
-        totalGain: 0,
-        totalGainPercentage: 0,
-        topPerformer: null
-      }
+const RoomQueueSummary = ({ queue, members }) => {
+  // Memoize queue stats — recomputing this on every keystroke elsewhere
+  // in the room (e.g. chat typing) would be wasted work
+  const queueStats = useMemo(() => {
+    if (!queue.length) {
+      return { totalDurationMs: 0, byContributor: {} }
     }
 
-    const totalValue = investments.reduce((sum, investment) => {
-      const currentPrice = marketData[investment.fundId]?.nav || 0
-      return sum + (investment.units * currentPrice)
-    }, 0)
+    const totalDurationMs = queue.reduce((sum, track) => sum + track.durationMs, 0)
 
-    const totalInvested = investments.reduce((sum, investment) => {
-      return sum + investment.investedAmount
-    }, 0)
+    const byContributor = queue.reduce((acc, track) => {
+      acc[track.addedBy] = (acc[track.addedBy] || 0) + 1
+      return acc
+    }, {})
 
-    const totalGain = totalValue - totalInvested
-    const totalGainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0
-
-    const topPerformer = investments.reduce((top, investment) => {
-      const currentPrice = marketData[investment.fundId]?.nav || 0
-      const gain = (currentPrice - investment.averagePrice) / investment.averagePrice
-      const topGain = top ? (top.currentPrice - top.averagePrice) / top.averagePrice : -1
-      return gain > topGain ? { ...investment, currentPrice, gain } : top
-    }, null)
-
-    return {
-      totalValue,
-      totalGain,
-      totalGainPercentage,
-      topPerformer
-    }
-  }, [investments, marketData])
+    return { totalDurationMs, byContributor }
+  }, [queue])
 
   return (
     <div>
-      <Typography variant="h4">
-        Portfolio Value: ₹{portfolioStats.totalValue.toLocaleString()}
-      </Typography>
-      <Typography 
-        variant="h6" 
-        color={portfolioStats.totalGain >= 0 ? 'success.main' : 'error.main'}
-      >
-        {portfolioStats.totalGain >= 0 ? '+' : ''}₹{portfolioStats.totalGain.toLocaleString()}
-        ({portfolioStats.totalGainPercentage.toFixed(2)}%)
+      <Typography variant="h6">
+        Queue length: {Math.round(queueStats.totalDurationMs / 60000)} min
       </Typography>
     </div>
   )
 }
 
-export default PortfolioSummary
+export default RoomQueueSummary
 ```
 
 ## Code Splitting & Lazy Loading
@@ -156,19 +121,14 @@ import { Routes, Route } from 'react-router-dom'
 import { Box, CircularProgress } from '@mui/material'
 
 // Lazy load pages
-const DashboardPage = lazy(() => import('pages/DashboardPage'))
-const InvestmentPage = lazy(() => import('pages/InvestmentPage'))
-const PortfolioPage = lazy(() => import('pages/PortfolioPage'))
-const ProfilePage = lazy(() => import('pages/ProfilePage'))
+const ConversationsPage = lazy(() => import('pages/conversations/ConversationsPage'))
+const MusicRoomPage = lazy(() => import('pages/music-rooms/MusicRoomPage'))
+const StoriesPage = lazy(() => import('pages/stories/StoriesPage'))
+const ProfilePage = lazy(() => import('pages/profile/ProfilePage'))
 
 // Loading component
 const PageLoader = () => (
-  <Box 
-    display="flex" 
-    justifyContent="center" 
-    alignItems="center" 
-    minHeight="400px"
-  >
+  <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
     <CircularProgress />
   </Box>
 )
@@ -177,9 +137,9 @@ const AppRouter = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/investment" element={<InvestmentPage />} />
-        <Route path="/portfolio" />
+        <Route path="/conversations" element={<ConversationsPage />} />
+        <Route path="/music-rooms/:roomId" element={<MusicRoomPage />} />
+        <Route path="/stories" element={<StoriesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Routes>
     </Suspense>
@@ -189,80 +149,50 @@ const AppRouter = () => {
 export default AppRouter
 ```
 
-### Component-Based Code Splitting
+### Dynamic Imports for Heavy/Optional Libraries
+The music-room provider adapters and things like an emoji picker are good
+candidates for dynamic import — they're not needed on first paint and, in
+the YouTube fallback's case, pull in a third-party iframe script:
+
 ```javascript
-// src/components/Charts/PortfolioChart.jsx
-import React, { lazy, Suspense } from 'react'
-import { Box, CircularProgress } from '@mui/material'
-
-// Lazy load heavy chart component
-const Chart = lazy(() => import('react-chartjs-2').then(module => ({
-  default: module.Line
-})))
-
-const PortfolioChart = ({ data }) => {
-  return (
-    <Suspense fallback={
-      <Box display="flex" justifyContent="center" p={4}>
-        <CircularProgress />
-      </Box>
-    }>
-      <Chart data={data} options={chartOptions} />
-    </Suspense>
-  )
+// src/features/music-room/providers/loadYouTubeProvider.js
+export const loadYouTubeProvider = async () => {
+  const { YouTubeProvider } = await import('./YouTubeProvider')
+  return YouTubeProvider
 }
 
-export default PortfolioChart
+// Usage — only load the YouTube IFrame provider if JioSaavn is unavailable
+const useMusicProvider = (providerType) => {
+  const [Provider, setProvider] = useState(null)
+
+  useEffect(() => {
+    if (providerType === 'youtube') {
+      loadYouTubeProvider().then((mod) => setProvider(() => mod))
+    }
+  }, [providerType])
+
+  return Provider
+}
 ```
 
-### Dynamic Imports for Heavy Libraries
 ```javascript
-// src/utils/chartUtils.js
-export const loadAmCharts = async () => {
-  const am4core = await import('@amcharts/amcharts4/core')
-  const am4charts = await import('@amcharts/amcharts4/charts')
-  const am4themes = await import('@amcharts/amcharts4/themes/animated')
-  
-  am4core.useTheme(am4themes.default)
-  
-  return { am4core, am4charts }
-}
+// Dynamic import for an emoji picker on message reactions — not needed
+// until the user opens the reaction menu
+const EmojiPicker = lazy(() => import('components/common/EmojiPickerComponent'))
 
-// Usage in component
-const ChartComponent = ({ data, type = 'line' }) => {
-  const [chartLib, setChartLib] = useState(null)
-  const chartRef = useRef(null)
+const ReactionMenu = ({ onSelect }) => {
+  const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    loadAmCharts().then(setChartLib)
-  }, [])
-
-  useEffect(() => {
-    if (chartLib && chartRef.current) {
-      const { am4core, am4charts } = chartLib
-      
-      // Create chart
-      const chart = am4core.create(chartRef.current, am4charts.XYChart)
-      chart.data = data
-      
-      // Configure chart based on type
-      if (type === 'line') {
-        const lineSeries = chart.series.push(new am4charts.LineSeries())
-        lineSeries.dataFields.valueY = 'value'
-        lineSeries.dataFields.dateX = 'date'
-      }
-      
-      return () => {
-        chart.dispose()
-      }
-    }
-  }, [chartLib, data, type])
-
-  if (!chartLib) {
-    return <CircularProgress />
-  }
-
-  return <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>React</Button>
+      {open && (
+        <Suspense fallback={<CircularProgress size={16} />}>
+          <EmojiPicker onSelect={onSelect} />
+        </Suspense>
+      )}
+    </>
+  )
 }
 ```
 
@@ -282,8 +212,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           mui: ['@mui/material', '@mui/icons-material'],
-          redux: ['@reduxjs/toolkit', 'react-redux'],
-          charts: ['chart.js', 'react-chartjs-2']
+          redux: ['@reduxjs/toolkit', 'react-redux']
         }
       }
     },
@@ -308,90 +237,84 @@ import * as Redux from 'react-redux'
 
 ## Memory Management
 
-### Cleanup Effects
+### Cleanup Socket & Timer Effects
+Music-room sync and presence rely on long-lived socket connections and
+recurring timers (the NTP-style re-sync every 30s per [[08-music-rooms]]) —
+these must be torn down on unmount or they'll keep firing against a
+component that's no longer there:
+
 ```javascript
 // ✅ Correct - Cleanup subscriptions and timers
 import React, { useEffect, useRef } from 'react'
 
-const RealTimePrice = ({ fundId }) => {
-  const wsRef = useRef(null)
-  const intervalRef = useRef(null)
+const useRoomSync = (roomId, socket) => {
+  const syncIntervalRef = useRef(null)
 
   useEffect(() => {
-    // WebSocket connection
-    wsRef.current = new WebSocket(`wss://api.example.com/prices/${fundId}`)
-    
-    // Polling fallback
-    intervalRef.current = setInterval(() => {
-      fetchPrice(fundId)
-    }, 30000)
+    const requestSync = () => {
+      socket.emit('room:sync_request', { t1: Date.now() })
+    }
+
+    requestSync()
+    syncIntervalRef.current = setInterval(requestSync, 30000)
 
     return () => {
-      // Cleanup WebSocket
-      if (wsRef.current) {
-        wsRef.current.close()
-      }
-      
-      // Cleanup interval
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+      // Cleanup interval on unmount / roomId change
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current)
       }
     }
-  }, [fundId])
-
-  return <div>Price updates...</div>
+  }, [roomId, socket])
 }
 ```
 
-### Avoid Memory Leaks
+### Avoid Memory Leaks — Abort In-Flight Requests
 ```javascript
 // ✅ Correct - Cancel ongoing requests
 import React, { useEffect, useRef } from 'react'
 
-const FundData = ({ fundId }) => {
+const MessageSearch = ({ query }) => {
   const abortControllerRef = useRef(null)
 
   useEffect(() => {
-    // Create new AbortController for each request
     abortControllerRef.current = new AbortController()
-    
-    const fetchData = async () => {
+
+    const search = async () => {
       try {
-        const response = await fetch(`/api/funds/${fundId}`, {
+        const response = await fetch(`/api/messages/search?q=${query}`, {
           signal: abortControllerRef.current.signal
         })
         const data = await response.json()
-        setFundData(data)
+        setResults(data)
       } catch (error) {
         if (error.name !== 'AbortError') {
-          console.error('Failed to fetch fund data:', error)
+          console.error('Search failed:', error)
         }
       }
     }
 
-    fetchData()
+    search()
 
     return () => {
-      // Cancel ongoing request on cleanup
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
     }
-  }, [fundId])
+  }, [query])
 
-  return <div>Fund data...</div>
+  return <div>Search results...</div>
 }
 ```
 
-## Image Optimization
+## Image & Media Optimization
 
-### Lazy Loading Images
+### Lazy Loading Avatars/Story Thumbnails
 ```javascript
-// src/components/LazyImage.jsx
+// src/components/common/LazyImageComponent.jsx
 import React, { useState, useRef, useEffect } from 'react'
 import { Box, Skeleton } from '@mui/material'
 
-const LazyImage = ({ src, alt, ...props }) => {
+const LazyImageComponent = ({ src, alt, ...props }) => {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isInView, setIsInView] = useState(false)
   const imgRef = useRef(null)
@@ -429,7 +352,7 @@ const LazyImage = ({ src, alt, ...props }) => {
   )
 }
 
-export default LazyImage
+export default LazyImageComponent
 ```
 
 ## Performance Monitoring
@@ -448,7 +371,7 @@ const App = () => {
     <Profiler id="App" onRender={onRenderCallback}>
       <Router>
         <Routes>
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/conversations" element={<ConversationsPage />} />
         </Routes>
       </Router>
     </Profiler>
@@ -458,21 +381,20 @@ const App = () => {
 
 ### Performance Metrics
 ```javascript
-// src/utils/performance.js
+// src/utils/performance.utils.js
 export const measurePerformance = (name, fn) => {
   const start = performance.now()
   const result = fn()
   const end = performance.now()
-  
+
   console.log(`${name} took ${end - start} milliseconds`)
   return result
 }
 
 // Usage
-const expensiveCalculation = () => {
-  return measurePerformance('Portfolio Calculation', () => {
-    // Expensive calculation
-    return calculatePortfolioValue(investments)
+const computeQueueStats = (queue) => {
+  return measurePerformance('Queue Stats Calculation', () => {
+    return calculateQueueStats(queue)
   })
 }
 ```
@@ -481,11 +403,11 @@ const expensiveCalculation = () => {
 
 ### Touch Optimization
 ```javascript
-// src/components/TouchOptimizedButton.jsx
+// src/components/mui/TouchOptimizedButtonComponent.jsx
 import React, { memo } from 'react'
 import { Button } from '@mui/material'
 
-const TouchOptimizedButton = memo(({ children, ...props }) => {
+const TouchOptimizedButtonComponent = memo(({ children, ...props }) => {
   return (
     <Button
       {...props}
@@ -501,12 +423,12 @@ const TouchOptimizedButton = memo(({ children, ...props }) => {
   )
 })
 
-export default TouchOptimizedButton
+export default TouchOptimizedButtonComponent
 ```
 
 ### Reduce Motion for Accessibility
 ```javascript
-// src/utils/accessibility.js
+// src/utils/accessibility.utils.js
 export const prefersReducedMotion = () => {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
@@ -514,535 +436,9 @@ export const prefersReducedMotion = () => {
 // Usage in animations
 const AnimatedComponent = () => {
   const shouldAnimate = !prefersReducedMotion()
-  
-  return (
-    <div
-      style={{
-        transition: shouldAnimate ? 'transform 0.3s ease' : 'none'
-      }}
-    >
-      Content
-    </div>
-  )
-}
-```# Performance Optimization
-
-## React Performance Patterns
-
-### React.memo for Component Memoization
-```javascript
-// ✅ Correct - Memoize expensive components
-import React, { memo } from 'react'
-import PropTypes from 'prop-types'
-
-const FundCard = memo(({ fund, onSelect, isSelected }) => {
-  return (
-    <Card 
-      onClick={() => onSelect(fund.id)}
-      sx={{ 
-        border: isSelected ? '2px solid #1976d2' : '1px solid #e0e0e0',
-        cursor: 'pointer'
-      }}
-    >
-      <CardContent>
-        <Typography variant="h6">{fund.name}</Typography>
-        <Typography variant="body2">NAV: ₹{fund.nav}</Typography>
-        <Typography variant="caption">{fund.category}</Typography>
-      </CardContent>
-    </Card>
-  )
-})
-
-FundCard.propTypes = {
-  fund: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    nav: PropTypes.number.isRequired,
-    category: PropTypes.string
-  }).isRequired,
-  onSelect: PropTypes.func.isRequired,
-  isSelected: PropTypes.bool
-}
-
-FundCard.displayName = 'FundCard'
-
-export default FundCard
-```
-
-### useCallback for Function Memoization
-```javascript
-// ✅ Correct - Memoize callback functions
-import React, { useState, useCallback, memo } from 'react'
-
-const FundList = memo(({ funds, onFundSelect }) => {
-  const [selectedFundId, setSelectedFundId] = useState(null)
-
-  // Memoize the selection handler
-  const handleFundSelect = useCallback((fundId) => {
-    setSelectedFundId(fundId)
-    onFundSelect?.(fundId)
-  }, [onFundSelect])
-
-  // Memoize the fund selection handler
-  const handleFundClick = useCallback((fund) => {
-    handleFundSelect(fund.id)
-  }, [handleFundSelect])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {funds.map(fund => (
-        <FundCard
-          key={fund.id}
-          fund={fund}
-          isSelected={selectedFundId === fund.id}
-          onSelect={handleFundClick}
-        />
-      ))}
-    </div>
-  )
-})
-
-export default FundList
-```
-
-### useMemo for Expensive Calculations
-```javascript
-// ✅ Correct - Memoize expensive calculations
-import React, { useMemo } from 'react'
-
-const PortfolioSummary = ({ investments, marketData }) => {
-  // Memoize portfolio calculations
-  const portfolioStats = useMemo(() => {
-    if (!investments.length || !marketData) {
-      return {
-        totalValue: 0,
-        totalGain: 0,
-        totalGainPercentage: 0,
-        topPerformer: null
-      }
-    }
-
-    const totalValue = investments.reduce((sum, investment) => {
-      const currentPrice = marketData[investment.fundId]?.nav || 0
-      return sum + (investment.units * currentPrice)
-    }, 0)
-
-    const totalInvested = investments.reduce((sum, investment) => {
-      return sum + investment.investedAmount
-    }, 0)
-
-    const totalGain = totalValue - totalInvested
-    const totalGainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0
-
-    const topPerformer = investments.reduce((top, investment) => {
-      const currentPrice = marketData[investment.fundId]?.nav || 0
-      const gain = (currentPrice - investment.averagePrice) / investment.averagePrice
-      const topGain = top ? (top.currentPrice - top.averagePrice) / top.averagePrice : -1
-      return gain > topGain ? { ...investment, currentPrice, gain } : top
-    }, null)
-
-    return {
-      totalValue,
-      totalGain,
-      totalGainPercentage,
-      topPerformer
-    }
-  }, [investments, marketData])
-
-  return (
-    <div>
-      <Typography variant="h4">
-        Portfolio Value: ₹{portfolioStats.totalValue.toLocaleString()}
-      </Typography>
-      <Typography 
-        variant="h6" 
-        color={portfolioStats.totalGain >= 0 ? 'success.main' : 'error.main'}
-      >
-        {portfolioStats.totalGain >= 0 ? '+' : ''}₹{portfolioStats.totalGain.toLocaleString()}
-        ({portfolioStats.totalGainPercentage.toFixed(2)}%)
-      </Typography>
-    </div>
-  )
-}
-
-export default PortfolioSummary
-```
-
-## Code Splitting & Lazy Loading
-
-### Route-Based Code Splitting
-```javascript
-// src/router/index.jsx
-import React, { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { Box, CircularProgress } from '@mui/material'
-
-// Lazy load pages
-const DashboardPage = lazy(() => import('pages/DashboardPage'))
-const InvestmentPage = lazy(() => import('pages/InvestmentPage'))
-const PortfolioPage = lazy(() => import('pages/PortfolioPage'))
-const ProfilePage = lazy(() => import('pages/ProfilePage'))
-
-// Loading component
-const PageLoader = () => (
-  <Box 
-    display="flex" 
-    justifyContent="center" 
-    alignItems="center" 
-    minHeight="400px"
-  >
-    <CircularProgress />
-  </Box>
-)
-
-const AppRouter = () => {
-  return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/investment" element={<InvestmentPage />} />
-        <Route path="/portfolio" />
-        <Route path="/profile" element={<ProfilePage />} />
-      </Routes>
-    </Suspense>
-  )
-}
-
-export default AppRouter
-```
-
-### Component-Based Code Splitting
-```javascript
-// src/components/Charts/PortfolioChart.jsx
-import React, { lazy, Suspense } from 'react'
-import { Box, CircularProgress } from '@mui/material'
-
-// Lazy load heavy chart component
-const Chart = lazy(() => import('react-chartjs-2').then(module => ({
-  default: module.Line
-})))
-
-const PortfolioChart = ({ data }) => {
-  return (
-    <Suspense fallback={
-      <Box display="flex" justifyContent="center" p={4}>
-        <CircularProgress />
-      </Box>
-    }>
-      <Chart data={data} options={chartOptions} />
-    </Suspense>
-  )
-}
-
-export default PortfolioChart
-```
-
-### Dynamic Imports for Heavy Libraries
-```javascript
-// src/utils/chartUtils.js
-export const loadAmCharts = async () => {
-  const am4core = await import('@amcharts/amcharts4/core')
-  const am4charts = await import('@amcharts/amcharts4/charts')
-  const am4themes = await import('@amcharts/amcharts4/themes/animated')
-  
-  am4core.useTheme(am4themes.default)
-  
-  return { am4core, am4charts }
-}
-
-// Usage in component
-const ChartComponent = ({ data, type = 'line' }) => {
-  const [chartLib, setChartLib] = useState(null)
-  const chartRef = useRef(null)
-
-  useEffect(() => {
-    loadAmCharts().then(setChartLib)
-  }, [])
-
-  useEffect(() => {
-    if (chartLib && chartRef.current) {
-      const { am4core, am4charts } = chartLib
-      
-      // Create chart
-      const chart = am4core.create(chartRef.current, am4charts.XYChart)
-      chart.data = data
-      
-      // Configure chart based on type
-      if (type === 'line') {
-        const lineSeries = chart.series.push(new am4charts.LineSeries())
-        lineSeries.dataFields.valueY = 'value'
-        lineSeries.dataFields.dateX = 'date'
-      }
-      
-      return () => {
-        chart.dispose()
-      }
-    }
-  }, [chartLib, data, type])
-
-  if (!chartLib) {
-    return <CircularProgress />
-  }
-
-  return <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
-}
-```
-
-## Bundle Optimization
-
-### Vite Configuration
-```javascript
-// vite.config.js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          mui: ['@mui/material', '@mui/icons-material'],
-          redux: ['@reduxjs/toolkit', 'react-redux'],
-          charts: ['chart.js', 'react-chartjs-2']
-        }
-      }
-    },
-    chunkSizeWarningLimit: 1000
-  },
-  optimizeDeps: {
-    include: ['react', 'react-dom', '@mui/material']
-  }
-})
-```
-
-### Tree Shaking
-```javascript
-// ✅ Correct - Import only what you need
-import { Button, TextField } from '@mui/material'
-import { useDispatch, useSelector } from 'react-redux'
-
-// ❌ Avoid - Import entire libraries
-import * as MUI from '@mui/material'
-import * as Redux from 'react-redux'
-```
-
-## Memory Management
-
-### Cleanup Effects
-```javascript
-// ✅ Correct - Cleanup subscriptions and timers
-import React, { useEffect, useRef } from 'react'
-
-const RealTimePrice = ({ fundId }) => {
-  const wsRef = useRef(null)
-  const intervalRef = useRef(null)
-
-  useEffect(() => {
-    // WebSocket connection
-    wsRef.current = new WebSocket(`wss://api.example.com/prices/${fundId}`)
-    
-    // Polling fallback
-    intervalRef.current = setInterval(() => {
-      fetchPrice(fundId)
-    }, 30000)
-
-    return () => {
-      // Cleanup WebSocket
-      if (wsRef.current) {
-        wsRef.current.close()
-      }
-      
-      // Cleanup interval
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [fundId])
-
-  return <div>Price updates...</div>
-}
-```
-
-### Avoid Memory Leaks
-```javascript
-// ✅ Correct - Cancel ongoing requests
-import React, { useEffect, useRef } from 'react'
-
-const FundData = ({ fundId }) => {
-  const abortControllerRef = useRef(null)
-
-  useEffect(() => {
-    // Create new AbortController for each request
-    abortControllerRef.current = new AbortController()
-    
-    const fetchData = async () => {
-      try {
-        const response = await fetch(`/api/funds/${fundId}`, {
-          signal: abortControllerRef.current.signal
-        })
-        const data = await response.json()
-        setFundData(data)
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error('Failed to fetch fund data:', error)
-        }
-      }
-    }
-
-    fetchData()
-
-    return () => {
-      // Cancel ongoing request on cleanup
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [fundId])
-
-  return <div>Fund data...</div>
-}
-```
-
-## Image Optimization
-
-### Lazy Loading Images
-```javascript
-// src/components/LazyImage.jsx
-import React, { useState, useRef, useEffect } from 'react'
-import { Box, Skeleton } from '@mui/material'
-
-const LazyImage = ({ src, alt, ...props }) => {
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [isInView, setIsInView] = useState(false)
-  const imgRef = useRef(null)
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsInView(true)
-          observer.disconnect()
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    if (imgRef.current) {
-      observer.observe(imgRef.current)
-    }
-
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <Box ref={imgRef} {...props}>
-      {isInView && (
-        <img
-          src={src}
-          alt={alt}
-          onLoad={() => setIsLoaded(true)}
-          style={{ display: isLoaded ? 'block' : 'none' }}
-        />
-      )}
-      {!isLoaded && <Skeleton variant="rectangular" width="100%" height="200px" />}
-    </Box>
-  )
-}
-
-export default LazyImage
-```
-
-## Performance Monitoring
-
-### React DevTools Profiler
-```javascript
-// Wrap expensive components with Profiler
-import React, { Profiler } from 'react'
-
-const onRenderCallback = (id, phase, actualDuration) => {
-  console.log('Component:', id, 'Phase:', phase, 'Duration:', actualDuration)
-}
-
-const App = () => {
-  return (
-    <Profiler id="App" onRender={onRenderCallback}>
-      <Router>
-        <Routes>
-          <Route path="/dashboard" element={<DashboardPage />} />
-        </Routes>
-      </Router>
-    </Profiler>
-  )
-}
-```
-
-### Performance Metrics
-```javascript
-// src/utils/performance.js
-export const measurePerformance = (name, fn) => {
-  const start = performance.now()
-  const result = fn()
-  const end = performance.now()
-  
-  console.log(`${name} took ${end - start} milliseconds`)
-  return result
-}
-
-// Usage
-const expensiveCalculation = () => {
-  return measurePerformance('Portfolio Calculation', () => {
-    // Expensive calculation
-    return calculatePortfolioValue(investments)
-  })
-}
-```
-
-## Mobile Performance
-
-### Touch Optimization
-```javascript
-// src/components/TouchOptimizedButton.jsx
-import React, { memo } from 'react'
-import { Button } from '@mui/material'
-
-const TouchOptimizedButton = memo(({ children, ...props }) => {
-  return (
-    <Button
-      {...props}
-      sx={{
-        minHeight: 44, // Minimum touch target size
-        minWidth: 44,
-        touchAction: 'manipulation', // Disable double-tap zoom
-        ...props.sx
-      }}
-    >
-      {children}
-    </Button>
-  )
-})
-
-export default TouchOptimizedButton
-```
-
-### Reduce Motion for Accessibility
-```javascript
-// src/utils/accessibility.js
-export const prefersReducedMotion = () => {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-// Usage in animations
-const AnimatedComponent = () => {
-  const shouldAnimate = !prefersReducedMotion()
-  
-  return (
-    <div
-      style={{
-        transition: shouldAnimate ? 'transform 0.3s ease' : 'none'
-      }}
-    >
+    <div style={{ transition: shouldAnimate ? 'transform 0.3s ease' : 'none' }}>
       Content
     </div>
   )

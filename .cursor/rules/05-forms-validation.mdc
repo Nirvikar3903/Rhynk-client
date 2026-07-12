@@ -4,182 +4,105 @@ alwaysApply: false
 ---
 # Forms & Validation
 
-## React Hook Form + Yup Integration
+## Form library — not yet decided/installed
 
-### Form Setup Pattern
+Neither `react-hook-form` nor `yup` (nor `@hookform/resolvers`) is currently
+in `package.json` — this file documents the React Hook Form + Yup pattern as
+the working convention *if/when* a form library is adopted, matching how
+`.claude/workflows/create-form.md` treats the form-library choice as not yet
+finalized. Don't `import` from either package without first confirming it's
+actually installed; if you're building the first real form in this repo,
+that's the moment to add the dependency deliberately (and note it here),
+not to assume it's already there.
+
+## React Hook Form + Yup Integration (target pattern)
+
+### Login Form
 ```javascript
-// src/components/forms/InvestmentForm.jsx
+// src/components/auth/LoginForm.jsx
 import React from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { 
-  Button, 
-  TextField, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
+import {
+  Button,
+  TextField,
   Box,
   Typography
 } from '@mui/material'
 
-// Validation schema
-const investmentSchema = yup.object({
-  amount: yup
-    .number()
-    .required('Investment amount is required')
-    .min(500, 'Minimum investment is ₹500')
-    .max(1000000, 'Maximum investment is ₹10,00,000'),
-  duration: yup
-    .number()
-    .required('Duration is required')
-    .min(1, 'Minimum duration is 1 month')
-    .max(60, 'Maximum duration is 60 months'),
-  riskProfile: yup
+// Validation schema — matches POST /auth/login body exactly
+const loginSchema = yup.object({
+  email: yup
     .string()
-    .required('Risk profile is required')
-    .oneOf(['conservative', 'moderate', 'aggressive'], 'Invalid risk profile'),
-  fundId: yup
+    .required('Email is required')
+    .email('Enter a valid email address'),
+  password: yup
     .string()
-    .required('Please select a fund'),
-  startDate: yup
-    .date()
-    .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past')
+    .required('Password is required')
 })
 
-const InvestmentForm = ({ onSubmit, loading = false }) => {
+const LoginForm = ({ onSubmit, loading = false, serverError }) => {
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
-    watch,
-    setValue
+    formState: { errors, isSubmitting }
   } = useForm({
-    resolver: yupResolver(investmentSchema),
-    defaultValues: {
-      amount: '',
-      duration: 12,
-      riskProfile: 'moderate',
-      fundId: '',
-      startDate: new Date().toISOString().split('T')[0]
-    }
+    resolver: yupResolver(loginSchema),
+    defaultValues: { email: '', password: '' }
   })
 
-  const watchedAmount = watch('amount')
-  const watchedDuration = watch('duration')
-
   const handleFormSubmit = async (data) => {
-    try {
-      await onSubmit(data)
-    } catch (error) {
-      console.error('Form submission error:', error)
-    }
+    // Container attaches deviceId (client-generated, persisted in
+    // localStorage) and deviceType: 'WEB' before calling the API —
+    // this form only collects email/password.
+    await onSubmit(data)
   }
 
   return (
     <Box component="form" onSubmit={handleSubmit(handleFormSubmit)}>
       <Typography variant="h6" gutterBottom>
-        Investment Details
+        Log In
       </Typography>
-      
-      {/* Investment Amount */}
-      <Controller
-        name="amount"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Investment Amount (₹)"
-            type="number"
-            error={!!errors.amount}
-            helperText={errors.amount?.message}
-            fullWidth
-            margin="normal"
-            InputProps={{
-              startAdornment: <Typography>₹</Typography>
-            }}
-          />
-        )}
-      />
 
-      {/* Duration */}
       <Controller
-        name="duration"
+        name="email"
         control={control}
         render={({ field }) => (
           <TextField
             {...field}
-            label="Duration (months)"
-            type="number"
-            error={!!errors.duration}
-            helperText={errors.duration?.message}
+            label="Email"
+            type="email"
+            error={!!errors.email}
+            helperText={errors.email?.message}
             fullWidth
             margin="normal"
           />
         )}
       />
 
-      {/* Risk Profile */}
       <Controller
-        name="riskProfile"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth margin="normal" error={!!errors.riskProfile}>
-            <InputLabel>Risk Profile</InputLabel>
-            <Select {...field} label="Risk Profile">
-              <MenuItem value="conservative">Conservative</MenuItem>
-              <MenuItem value="moderate">Moderate</MenuItem>
-              <MenuItem value="aggressive">Aggressive</MenuItem>
-            </Select>
-            {errors.riskProfile && (
-              <Typography variant="caption" color="error">
-                {errors.riskProfile.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      {/* Fund Selection */}
-      <Controller
-        name="fundId"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth margin="normal" error={!!errors.fundId}>
-            <InputLabel>Select Fund</InputLabel>
-            <Select {...field} label="Select Fund">
-              {/* Fund options will be populated from API */}
-            </Select>
-            {errors.fundId && (
-              <Typography variant="caption" color="error">
-                {errors.fundId.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      {/* Start Date */}
-      <Controller
-        name="startDate"
+        name="password"
         control={control}
         render={({ field }) => (
           <TextField
             {...field}
-            label="Start Date"
-            type="date"
-            error={!!errors.startDate}
-            helperText={errors.startDate?.message}
+            label="Password"
+            type="password"
+            error={!!errors.password}
+            helperText={errors.password?.message}
             fullWidth
             margin="normal"
-            InputLabelProps={{ shrink: true }}
           />
         )}
       />
 
-      {/* Submit Button */}
+      {serverError && (
+        <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+          {serverError}
+        </Typography>
+      )}
+
       <Button
         type="submit"
         variant="contained"
@@ -187,112 +110,135 @@ const InvestmentForm = ({ onSubmit, loading = false }) => {
         disabled={isSubmitting || loading}
         sx={{ mt: 3, mb: 2 }}
       >
-        {isSubmitting || loading ? 'Processing...' : 'Create Investment'}
+        {isSubmitting || loading ? 'Logging in...' : 'Log In'}
       </Button>
     </Box>
   )
 }
 
-export default InvestmentForm
+export default LoginForm
 ```
 
-## Financial Form Patterns
+## Auth-Specific Form Schemas
 
-### KYC Form Schema
+These match `docs/AUTH_MODULE.md`'s request bodies exactly — see
+[[06-auth-security]] for the full endpoint contract. Don't invent extra
+fields or a different shape.
+
+### Register Schema
 ```javascript
-// src/schemas/kycSchema.js
+// src/schemas/registerSchema.js
 import * as yup from 'yup'
 
-export const kycSchema = yup.object({
-  personalDetails: yup.object({
-    firstName: yup
-      .string()
-      .required('First name is required')
-      .min(2, 'First name must be at least 2 characters')
-      .max(50, 'First name must be less than 50 characters'),
-    lastName: yup
-      .string()
-      .required('Last name is required')
-      .min(2, 'Last name must be at least 2 characters')
-      .max(50, 'Last name must be less than 50 characters'),
-    dateOfBirth: yup
-      .date()
-      .required('Date of birth is required')
-      .max(new Date(), 'Date of birth cannot be in the future'),
-    panNumber: yup
-      .string()
-      .required('PAN number is required')
-      .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'),
-    aadhaarNumber: yup
-      .string()
-      .required('Aadhaar number is required')
-      .matches(/^[0-9]{12}$/, 'Aadhaar number must be 12 digits')
-  }),
-  address: yup.object({
-    line1: yup.string().required('Address line 1 is required'),
-    line2: yup.string(),
-    city: yup.string().required('City is required'),
-    state: yup.string().required('State is required'),
-    pincode: yup
-      .string()
-      .required('Pincode is required')
-      .matches(/^[0-9]{6}$/, 'Pincode must be 6 digits'),
-    country: yup.string().default('India')
-  }),
-  bankDetails: yup.object({
-    accountNumber: yup
-      .string()
-      .required('Account number is required')
-      .min(9, 'Account number must be at least 9 digits')
-      .max(18, 'Account number must be less than 18 digits'),
-    ifscCode: yup
-      .string()
-      .required('IFSC code is required')
-      .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format'),
-    accountHolderName: yup
-      .string()
-      .required('Account holder name is required')
-  })
-})
-```
-
-### SIP Order Form
-```javascript
-// src/schemas/sipOrderSchema.js
-import * as yup from 'yup'
-
-export const sipOrderSchema = yup.object({
-  fundId: yup.string().required('Fund selection is required'),
-  amount: yup
-    .number()
-    .required('SIP amount is required')
-    .min(500, 'Minimum SIP amount is ₹500')
-    .max(50000, 'Maximum SIP amount is ₹50,000'),
-  frequency: yup
+// POST /auth/register — { username, email, password }
+export const registerSchema = yup.object({
+  username: yup
     .string()
-    .required('SIP frequency is required')
-    .oneOf(['monthly', 'quarterly', 'yearly'], 'Invalid frequency'),
-  startDate: yup
-    .date()
-    .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past'),
-  endDate: yup
-    .date()
-    .when('startDate', (startDate, schema) => {
-      if (startDate) {
-        const minEndDate = new Date(startDate)
-        minEndDate.setMonth(minEndDate.getMonth() + 1)
-        return schema.min(minEndDate, 'End date must be at least 1 month after start date')
-      }
-      return schema
-    }),
-  autoDebit: yup.boolean().default(true),
-  bankAccountId: yup.string().when('autoDebit', {
-    is: true,
-    then: yup.string().required('Bank account is required for auto debit'),
-    otherwise: yup.string()
-  })
+    .required('Username is required')
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be less than 30 characters'),
+  email: yup
+    .string()
+    .required('Email is required')
+    .email('Enter a valid email address'),
+  password: yup
+    .string()
+    .required('Password is required')
+    .min(8, 'Password must be at least 8 characters')
 })
+```
+
+### Login Schema
+```javascript
+// src/schemas/loginSchema.js
+import * as yup from 'yup'
+
+// POST /auth/login — { email, password, deviceId, deviceType }
+// deviceId/deviceType are attached by the container, not collected in the form
+export const loginSchema = yup.object({
+  email: yup.string().required('Email is required').email('Enter a valid email address'),
+  password: yup.string().required('Password is required')
+})
+```
+
+### OTP Verification Schema
+```javascript
+// src/schemas/otpSchema.js
+import * as yup from 'yup'
+
+// POST /auth/verify-otp — { email, otp, deviceId, deviceType }
+export const otpSchema = yup.object({
+  email: yup.string().required().email(),
+  otp: yup
+    .string()
+    .required('Enter the 6-digit code')
+    .matches(/^[0-9]{6}$/, 'Code must be exactly 6 digits')
+})
+```
+
+## OTP Verification Form
+
+```javascript
+// src/components/auth/OTPVerificationForm.jsx
+import React from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import { Button, TextField, Box, Typography } from '@mui/material'
+import { otpSchema } from 'schemas/otpSchema'
+
+const OTPVerificationForm = ({ email, onSubmit, onResend, loading = false }) => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting }
+  } = useForm({
+    resolver: yupResolver(otpSchema),
+    defaultValues: { email, otp: '' }
+  })
+
+  return (
+    <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+      <Typography variant="h6" gutterBottom>
+        Verify your email
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Enter the 6-digit code sent to {email}
+      </Typography>
+
+      <Controller
+        name="otp"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Verification code"
+            inputProps={{ maxLength: 6, inputMode: 'numeric' }}
+            error={!!errors.otp}
+            helperText={errors.otp?.message}
+            fullWidth
+            margin="normal"
+          />
+        )}
+      />
+
+      <Button
+        type="submit"
+        variant="contained"
+        fullWidth
+        disabled={isSubmitting || loading}
+        sx={{ mt: 2, mb: 1 }}
+      >
+        {isSubmitting || loading ? 'Verifying...' : 'Verify'}
+      </Button>
+
+      <Button onClick={onResend} fullWidth>
+        Resend code
+      </Button>
+    </Box>
+  )
+}
+
+export default OTPVerificationForm
 ```
 
 ## Form State Management
@@ -300,7 +246,7 @@ export const sipOrderSchema = yup.object({
 ### Loading States
 ```javascript
 // ✅ Correct - Proper loading state management
-const InvestmentForm = ({ onSubmit }) => {
+const RegisterForm = ({ onSubmit }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
 
@@ -310,19 +256,20 @@ const InvestmentForm = ({ onSubmit }) => {
     formState: { errors, isValid },
     reset
   } = useForm({
-    resolver: yupResolver(investmentSchema),
+    resolver: yupResolver(registerSchema),
     mode: 'onChange' // Validate on change for better UX
   })
 
   const handleFormSubmit = async (data) => {
     setIsSubmitting(true)
     setSubmitError(null)
-    
+
     try {
       await onSubmit(data)
       reset() // Clear form on success
     } catch (error) {
-      setSubmitError(error.message || 'Submission failed')
+      // Map server error codes (EMAIL_TAKEN, OTP_COOLDOWN) to a friendly message
+      setSubmitError(error.message || 'Registration failed')
     } finally {
       setIsSubmitting(false)
     }
@@ -331,18 +278,14 @@ const InvestmentForm = ({ onSubmit }) => {
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)}>
       {/* Form fields */}
-      
+
       {submitError && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {submitError}
         </Alert>
       )}
-      
-      <Button
-        type="submit"
-        disabled={!isValid || isSubmitting}
-        fullWidth
-      >
+
+      <Button type="submit" disabled={!isValid || isSubmitting} fullWidth>
         {isSubmitting ? 'Processing...' : 'Submit'}
       </Button>
     </form>
@@ -350,111 +293,36 @@ const InvestmentForm = ({ onSubmit }) => {
 }
 ```
 
-### Error Handling
+### Error Handling — mapping server error codes
+`docs/AUTH_MODULE.md` returns specific error codes rather than free-form
+messages (`EMAIL_TAKEN`, `OTP_INVALID`, `INVALID_CREDENTIALS`,
+`EMAIL_NOT_VERIFIED`, `OTP_COOLDOWN`, `USER_NOT_FOUND`). Map these to
+field-level or form-level errors rather than showing the raw code:
+
 ```javascript
-// ✅ Correct - Comprehensive error handling
-const FormWithErrorHandling = () => {
-  const [serverErrors, setServerErrors] = useState({})
-
-  const {
-    control,
-    handleSubmit,
-    setError,
-    clearErrors,
-    formState: { errors }
-  } = useForm({
-    resolver: yupResolver(schema)
-  })
-
-  const handleServerError = (field, message) => {
-    setError(field, {
-      type: 'server',
-      message
-    })
-  }
-
-  const handleFormSubmit = async (data) => {
-    try {
-      clearErrors() // Clear previous errors
-      await submitToAPI(data)
-    } catch (error) {
-      if (error.field) {
-        handleServerError(error.field, error.message)
-      } else {
-        setServerErrors({ general: error.message })
-      }
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit(handleFormSubmit)}>
-      {/* Form fields with error display */}
-      {serverErrors.general && (
-        <Alert severity="error">
-          {serverErrors.general}
-        </Alert>
-      )}
-    </form>
-  )
-}
-```
-
-## Form Validation Patterns
-
-### Custom Validators
-```javascript
-// src/utils/validators.js
-export const customValidators = {
-  // PAN validation
-  pan: (value) => {
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
-    return panRegex.test(value) || 'Invalid PAN format'
-  },
-  
-  // IFSC validation
-  ifsc: (value) => {
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/
-    return ifscRegex.test(value) || 'Invalid IFSC code'
-  },
-  
-  // Aadhaar validation
-  aadhaar: (value) => {
-    const aadhaarRegex = /^[0-9]{12}$/
-    return aadhaarRegex.test(value) || 'Aadhaar must be 12 digits'
-  },
-  
-  // Phone number validation
-  phone: (value) => {
-    const phoneRegex = /^[6-9]\d{9}$/
-    return phoneRegex.test(value) || 'Invalid phone number'
-  },
-  
-  // Amount validation with range
-  amount: (min, max) => (value) => {
-    if (value < min) return `Minimum amount is ₹${min}`
-    if (value > max) return `Maximum amount is ₹${max}`
-    return true
+// ✅ Correct - Map known error codes to field errors
+const handleServerError = (setError, code) => {
+  switch (code) {
+    case 'EMAIL_TAKEN':
+      setError('email', { type: 'server', message: 'This email is already registered' })
+      break
+    case 'INVALID_CREDENTIALS':
+      setError('password', { type: 'server', message: 'Incorrect email or password' })
+      break
+    case 'EMAIL_NOT_VERIFIED':
+      setError('email', { type: 'server', message: 'Please verify your email first' })
+      break
+    case 'OTP_INVALID':
+      setError('otp', { type: 'server', message: 'Invalid or expired code' })
+      break
+    case 'OTP_COOLDOWN':
+      setError('otp', { type: 'server', message: 'Please wait before requesting another code' })
+      break
+    default:
+      // Fall back to a toast (sonner) for unmapped/unexpected errors
+      break
   }
 }
-```
-
-### Conditional Validation
-```javascript
-// ✅ Correct - Conditional validation based on other fields
-const conditionalSchema = yup.object({
-  investmentType: yup.string().required(),
-  amount: yup.number().required(),
-  duration: yup.number().when('investmentType', {
-    is: 'sip',
-    then: yup.number().min(1, 'SIP duration must be at least 1 month'),
-    otherwise: yup.number().min(1, 'Duration must be at least 1 month')
-  }),
-  frequency: yup.string().when('investmentType', {
-    is: 'sip',
-    then: yup.string().required('Frequency is required for SIP'),
-    otherwise: yup.string()
-  })
-})
 ```
 
 ## Form Accessibility
@@ -462,27 +330,23 @@ const conditionalSchema = yup.object({
 ### ARIA Labels and Roles
 ```javascript
 // ✅ Correct - Accessible form elements
-const AccessibleForm = () => {
+const AccessibleLoginForm = () => {
   return (
-    <form role="form" aria-label="Investment form">
+    <form role="form" aria-label="Login form">
       <TextField
-        label="Investment Amount"
-        aria-describedby="amount-help"
+        label="Email"
+        aria-describedby="email-help"
         aria-required="true"
-        error={!!errors.amount}
-        helperText={errors.amount?.message}
+        error={!!errors.email}
+        helperText={errors.email?.message}
       />
-      
-      <div id="amount-help">
-        Enter amount between ₹500 and ₹10,00,000
+
+      <div id="email-help">
+        Use the email address you registered with
       </div>
-      
-      <Button
-        type="submit"
-        aria-label="Submit investment form"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Processing...' : 'Submit'}
+
+      <Button type="submit" aria-label="Submit login form" disabled={isSubmitting}>
+        {isSubmitting ? 'Logging in...' : 'Log In'}
       </Button>
     </form>
   )
@@ -492,548 +356,20 @@ const AccessibleForm = () => {
 ## Form Requirements Checklist
 
 ### ✅ Basic Requirements
+- [ ] Confirm `react-hook-form`/`yup` are actually installed before using them
 - [ ] Use React Hook Form for form management
-- [ ] Include Yup validation schema
-- [ ] Use Controller for MUI components
-- [ ] Add proper error handling and display
+- [ ] Include a Yup validation schema matching the exact server request body
+- [ ] Use `Controller` for MUI components
+- [ ] Add proper error handling and display, including mapped server error codes
 - [ ] Include loading states during submission
 - [ ] Disable submit button when form is invalid
 - [ ] Use PropTypes for all prop validation (NO TypeScript)
-- [ ] Follow JSX file structure order
-
-### ✅ Financial Form Specific
-- [ ] Use currency formatting for monetary inputs
-- [ ] Include proper validation for financial data
-- [ ] Add clear error messages for validation failures
-- [ ] Include confirmation steps for critical actions
-- [ ] Add data masking for sensitive information
-- [ ] Encrypt sensitive form data before submission
+- [ ] Follow JSX file structure order (see [[02-code-standards]])
 
 ### ✅ User Experience
 - [ ] Provide clear field labels and placeholders
 - [ ] Include helpful text and examples
-- [ ] Add progress indicators for multi-step forms
-- [ ] Include save draft functionality where appropriate
-- [ ] Add form reset functionality
-- [ ] Use MUI SX prop for all styling needs
-
-### ✅ Accessibility
-- [ ] Include proper ARIA labels
-- [ ] Ensure keyboard navigation works
-- [ ] Add screen reader support
-- [ ] Include proper focus management
-- [ ] Test with accessibility tools# Forms & Validation
-
-## React Hook Form + Yup Integration
-
-### Form Setup Pattern
-```javascript
-// src/components/forms/InvestmentForm.jsx
-import React from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
-import { 
-  Button, 
-  TextField, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
-  Box,
-  Typography
-} from '@mui/material'
-
-// Validation schema
-const investmentSchema = yup.object({
-  amount: yup
-    .number()
-    .required('Investment amount is required')
-    .min(500, 'Minimum investment is ₹500')
-    .max(1000000, 'Maximum investment is ₹10,00,000'),
-  duration: yup
-    .number()
-    .required('Duration is required')
-    .min(1, 'Minimum duration is 1 month')
-    .max(60, 'Maximum duration is 60 months'),
-  riskProfile: yup
-    .string()
-    .required('Risk profile is required')
-    .oneOf(['conservative', 'moderate', 'aggressive'], 'Invalid risk profile'),
-  fundId: yup
-    .string()
-    .required('Please select a fund'),
-  startDate: yup
-    .date()
-    .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past')
-})
-
-const InvestmentForm = ({ onSubmit, loading = false }) => {
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    watch,
-    setValue
-  } = useForm({
-    resolver: yupResolver(investmentSchema),
-    defaultValues: {
-      amount: '',
-      duration: 12,
-      riskProfile: 'moderate',
-      fundId: '',
-      startDate: new Date().toISOString().split('T')[0]
-    }
-  })
-
-  const watchedAmount = watch('amount')
-  const watchedDuration = watch('duration')
-
-  const handleFormSubmit = async (data) => {
-    try {
-      await onSubmit(data)
-    } catch (error) {
-      console.error('Form submission error:', error)
-    }
-  }
-
-  return (
-    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)}>
-      <Typography variant="h6" gutterBottom>
-        Investment Details
-      </Typography>
-      
-      {/* Investment Amount */}
-      <Controller
-        name="amount"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Investment Amount (₹)"
-            type="number"
-            error={!!errors.amount}
-            helperText={errors.amount?.message}
-            fullWidth
-            margin="normal"
-            InputProps={{
-              startAdornment: <Typography>₹</Typography>
-            }}
-          />
-        )}
-      />
-
-      {/* Duration */}
-      <Controller
-        name="duration"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Duration (months)"
-            type="number"
-            error={!!errors.duration}
-            helperText={errors.duration?.message}
-            fullWidth
-            margin="normal"
-          />
-        )}
-      />
-
-      {/* Risk Profile */}
-      <Controller
-        name="riskProfile"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth margin="normal" error={!!errors.riskProfile}>
-            <InputLabel>Risk Profile</InputLabel>
-            <Select {...field} label="Risk Profile">
-              <MenuItem value="conservative">Conservative</MenuItem>
-              <MenuItem value="moderate">Moderate</MenuItem>
-              <MenuItem value="aggressive">Aggressive</MenuItem>
-            </Select>
-            {errors.riskProfile && (
-              <Typography variant="caption" color="error">
-                {errors.riskProfile.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      {/* Fund Selection */}
-      <Controller
-        name="fundId"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth margin="normal" error={!!errors.fundId}>
-            <InputLabel>Select Fund</InputLabel>
-            <Select {...field} label="Select Fund">
-              {/* Fund options will be populated from API */}
-            </Select>
-            {errors.fundId && (
-              <Typography variant="caption" color="error">
-                {errors.fundId.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      {/* Start Date */}
-      <Controller
-        name="startDate"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Start Date"
-            type="date"
-            error={!!errors.startDate}
-            helperText={errors.startDate?.message}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-          />
-        )}
-      />
-
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        variant="contained"
-        fullWidth
-        disabled={isSubmitting || loading}
-        sx={{ mt: 3, mb: 2 }}
-      >
-        {isSubmitting || loading ? 'Processing...' : 'Create Investment'}
-      </Button>
-    </Box>
-  )
-}
-
-export default InvestmentForm
-```
-
-## Financial Form Patterns
-
-### KYC Form Schema
-```javascript
-// src/schemas/kycSchema.js
-import * as yup from 'yup'
-
-export const kycSchema = yup.object({
-  personalDetails: yup.object({
-    firstName: yup
-      .string()
-      .required('First name is required')
-      .min(2, 'First name must be at least 2 characters')
-      .max(50, 'First name must be less than 50 characters'),
-    lastName: yup
-      .string()
-      .required('Last name is required')
-      .min(2, 'Last name must be at least 2 characters')
-      .max(50, 'Last name must be less than 50 characters'),
-    dateOfBirth: yup
-      .date()
-      .required('Date of birth is required')
-      .max(new Date(), 'Date of birth cannot be in the future'),
-    panNumber: yup
-      .string()
-      .required('PAN number is required')
-      .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'),
-    aadhaarNumber: yup
-      .string()
-      .required('Aadhaar number is required')
-      .matches(/^[0-9]{12}$/, 'Aadhaar number must be 12 digits')
-  }),
-  address: yup.object({
-    line1: yup.string().required('Address line 1 is required'),
-    line2: yup.string(),
-    city: yup.string().required('City is required'),
-    state: yup.string().required('State is required'),
-    pincode: yup
-      .string()
-      .required('Pincode is required')
-      .matches(/^[0-9]{6}$/, 'Pincode must be 6 digits'),
-    country: yup.string().default('India')
-  }),
-  bankDetails: yup.object({
-    accountNumber: yup
-      .string()
-      .required('Account number is required')
-      .min(9, 'Account number must be at least 9 digits')
-      .max(18, 'Account number must be less than 18 digits'),
-    ifscCode: yup
-      .string()
-      .required('IFSC code is required')
-      .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format'),
-    accountHolderName: yup
-      .string()
-      .required('Account holder name is required')
-  })
-})
-```
-
-### SIP Order Form
-```javascript
-// src/schemas/sipOrderSchema.js
-import * as yup from 'yup'
-
-export const sipOrderSchema = yup.object({
-  fundId: yup.string().required('Fund selection is required'),
-  amount: yup
-    .number()
-    .required('SIP amount is required')
-    .min(500, 'Minimum SIP amount is ₹500')
-    .max(50000, 'Maximum SIP amount is ₹50,000'),
-  frequency: yup
-    .string()
-    .required('SIP frequency is required')
-    .oneOf(['monthly', 'quarterly', 'yearly'], 'Invalid frequency'),
-  startDate: yup
-    .date()
-    .required('Start date is required')
-    .min(new Date(), 'Start date cannot be in the past'),
-  endDate: yup
-    .date()
-    .when('startDate', (startDate, schema) => {
-      if (startDate) {
-        const minEndDate = new Date(startDate)
-        minEndDate.setMonth(minEndDate.getMonth() + 1)
-        return schema.min(minEndDate, 'End date must be at least 1 month after start date')
-      }
-      return schema
-    }),
-  autoDebit: yup.boolean().default(true),
-  bankAccountId: yup.string().when('autoDebit', {
-    is: true,
-    then: yup.string().required('Bank account is required for auto debit'),
-    otherwise: yup.string()
-  })
-})
-```
-
-## Form State Management
-
-### Loading States
-```javascript
-// ✅ Correct - Proper loading state management
-const InvestmentForm = ({ onSubmit }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState(null)
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isValid },
-    reset
-  } = useForm({
-    resolver: yupResolver(investmentSchema),
-    mode: 'onChange' // Validate on change for better UX
-  })
-
-  const handleFormSubmit = async (data) => {
-    setIsSubmitting(true)
-    setSubmitError(null)
-    
-    try {
-      await onSubmit(data)
-      reset() // Clear form on success
-    } catch (error) {
-      setSubmitError(error.message || 'Submission failed')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit(handleFormSubmit)}>
-      {/* Form fields */}
-      
-      {submitError && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {submitError}
-        </Alert>
-      )}
-      
-      <Button
-        type="submit"
-        disabled={!isValid || isSubmitting}
-        fullWidth
-      >
-        {isSubmitting ? 'Processing...' : 'Submit'}
-      </Button>
-    </form>
-  )
-}
-```
-
-### Error Handling
-```javascript
-// ✅ Correct - Comprehensive error handling
-const FormWithErrorHandling = () => {
-  const [serverErrors, setServerErrors] = useState({})
-
-  const {
-    control,
-    handleSubmit,
-    setError,
-    clearErrors,
-    formState: { errors }
-  } = useForm({
-    resolver: yupResolver(schema)
-  })
-
-  const handleServerError = (field, message) => {
-    setError(field, {
-      type: 'server',
-      message
-    })
-  }
-
-  const handleFormSubmit = async (data) => {
-    try {
-      clearErrors() // Clear previous errors
-      await submitToAPI(data)
-    } catch (error) {
-      if (error.field) {
-        handleServerError(error.field, error.message)
-      } else {
-        setServerErrors({ general: error.message })
-      }
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit(handleFormSubmit)}>
-      {/* Form fields with error display */}
-      {serverErrors.general && (
-        <Alert severity="error">
-          {serverErrors.general}
-        </Alert>
-      )}
-    </form>
-  )
-}
-```
-
-## Form Validation Patterns
-
-### Custom Validators
-```javascript
-// src/utils/validators.js
-export const customValidators = {
-  // PAN validation
-  pan: (value) => {
-    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/
-    return panRegex.test(value) || 'Invalid PAN format'
-  },
-  
-  // IFSC validation
-  ifsc: (value) => {
-    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/
-    return ifscRegex.test(value) || 'Invalid IFSC code'
-  },
-  
-  // Aadhaar validation
-  aadhaar: (value) => {
-    const aadhaarRegex = /^[0-9]{12}$/
-    return aadhaarRegex.test(value) || 'Aadhaar must be 12 digits'
-  },
-  
-  // Phone number validation
-  phone: (value) => {
-    const phoneRegex = /^[6-9]\d{9}$/
-    return phoneRegex.test(value) || 'Invalid phone number'
-  },
-  
-  // Amount validation with range
-  amount: (min, max) => (value) => {
-    if (value < min) return `Minimum amount is ₹${min}`
-    if (value > max) return `Maximum amount is ₹${max}`
-    return true
-  }
-}
-```
-
-### Conditional Validation
-```javascript
-// ✅ Correct - Conditional validation based on other fields
-const conditionalSchema = yup.object({
-  investmentType: yup.string().required(),
-  amount: yup.number().required(),
-  duration: yup.number().when('investmentType', {
-    is: 'sip',
-    then: yup.number().min(1, 'SIP duration must be at least 1 month'),
-    otherwise: yup.number().min(1, 'Duration must be at least 1 month')
-  }),
-  frequency: yup.string().when('investmentType', {
-    is: 'sip',
-    then: yup.string().required('Frequency is required for SIP'),
-    otherwise: yup.string()
-  })
-})
-```
-
-## Form Accessibility
-
-### ARIA Labels and Roles
-```javascript
-// ✅ Correct - Accessible form elements
-const AccessibleForm = () => {
-  return (
-    <form role="form" aria-label="Investment form">
-      <TextField
-        label="Investment Amount"
-        aria-describedby="amount-help"
-        aria-required="true"
-        error={!!errors.amount}
-        helperText={errors.amount?.message}
-      />
-      
-      <div id="amount-help">
-        Enter amount between ₹500 and ₹10,00,000
-      </div>
-      
-      <Button
-        type="submit"
-        aria-label="Submit investment form"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Processing...' : 'Submit'}
-      </Button>
-    </form>
-  )
-}
-```
-
-## Form Requirements Checklist
-
-### ✅ Basic Requirements
-- [ ] Use React Hook Form for form management
-- [ ] Include Yup validation schema
-- [ ] Use Controller for MUI components
-- [ ] Add proper error handling and display
-- [ ] Include loading states during submission
-- [ ] Disable submit button when form is invalid
-- [ ] Use PropTypes for all prop validation (NO TypeScript)
-- [ ] Follow JSX file structure order
-
-### ✅ Financial Form Specific
-- [ ] Use currency formatting for monetary inputs
-- [ ] Include proper validation for financial data
-- [ ] Add clear error messages for validation failures
-- [ ] Include confirmation steps for critical actions
-- [ ] Add data masking for sensitive information
-- [ ] Encrypt sensitive form data before submission
-
-### ✅ User Experience
-- [ ] Provide clear field labels and placeholders
-- [ ] Include helpful text and examples
-- [ ] Add progress indicators for multi-step forms
-- [ ] Include save draft functionality where appropriate
+- [ ] Add progress indicators for multi-step forms (register → OTP)
 - [ ] Add form reset functionality
 - [ ] Use MUI SX prop for all styling needs
 

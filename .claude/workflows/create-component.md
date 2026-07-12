@@ -2,10 +2,10 @@
 
 ## Where it goes
 
-- Cross-feature dumb UI primitive → `src/components/` (see [[01-architecture]]).
-- Feature-scoped UI → `src/features/<name>/components/`.
-- shadcn-style wrapper around a Radix primitive → `src/components/ui/` (see
-  [[create-shadcn-component]] instead — that's a distinct, more constrained
+- Cross-feature dumb UI primitive → `src/components/<domain>/` (see [[01-architecture]]).
+- Feature-scoped UI (business logic, RTK Query, Redux) → `src/features/containers/<domain>/`.
+- MUI wrapper around a `@mui/material` primitive → `src/components/mui/` (see
+  [[create-mui-component]] instead — that's a distinct, more constrained
   pattern from a plain feature component).
 
 ## Naming
@@ -16,34 +16,44 @@ No `Component` suffix convention in this repo — just `MessageBubble.jsx`, not
 
 ## No PropTypes — not installed
 
-Unlike prop-types-based React codebases, `prop-types` is **not** a dependency
-here. Don't add `Component.propTypes = {...}` blocks — either rely on plain
-JS destructuring with sane defaults, or if runtime prop validation is
-genuinely wanted, that's a deliberate `npm install prop-types` decision to
-raise first, not something to add ad hoc in one component.
+`prop-types` is **not** a dependency here. Don't add `Component.propTypes =
+{...}` blocks — either rely on plain JS destructuring with sane defaults, or
+if runtime prop validation is genuinely wanted, that's a deliberate
+`npm install prop-types` decision to raise first, not something to add ad hoc
+in one component.
 
 ## Template
 
 ```jsx
-// src/features/conversations/components/MessageBubble.jsx
+// src/components/messages/MessageBubble.jsx
 import { memo } from 'react'
-import { cn } from 'lib/utils' // see create-shadcn-component — cn() helper
+import { Box, Typography } from '@mui/material'
 
 const MessageBubble = ({ message, isOwn = false, onReact }) => {
   return (
-    <div
-      className={cn(
-        'max-w-[70%] rounded-2xl px-4 py-2 text-sm',
-        isOwn ? 'ml-auto bg-primary text-primary-foreground' : 'bg-muted',
-      )}
+    <Box
+      sx={{
+        maxWidth: '70%',
+        ml: isOwn ? 'auto' : 0,
+        borderRadius: 3,
+        px: 2,
+        py: 1,
+        bgcolor: isOwn ? 'primary.main' : 'action.hover',
+        color: isOwn ? 'primary.contrastText' : 'text.primary',
+      }}
     >
-      <p>{message.content.text}</p>
+      <Typography variant="body2">{message.content.text}</Typography>
       {onReact && (
-        <button onClick={() => onReact(message._id)} className="text-xs opacity-60">
+        <Typography
+          component="button"
+          onClick={() => onReact(message._id)}
+          variant="caption"
+          sx={{ opacity: 0.6, border: 0, bgcolor: 'transparent', cursor: 'pointer' }}
+        >
           react
-        </button>
+        </Typography>
       )}
-    </div>
+    </Box>
   )
 }
 
@@ -54,12 +64,12 @@ export default memo(MessageBubble)
 
 - [ ] Function component, hooks only — no class components.
 - [ ] Props destructured in the signature, sensible defaults inline.
-- [ ] Pure UI — no `fetch`/RTK Query hook calls, no `useSelector`/`useDispatch`,
-      inside a component meant to live in `components/` (feature components
-      *may* reach into their own feature's hooks — see [[01-architecture]]
-      module boundaries).
-- [ ] Styling via Tailwind utility classes (`className`), not inline `style`
-      objects — this is a Tailwind v4 project, not MUI's `sx` prop.
+- [ ] Pure UI — no `fetch`/RTK Query hook calls, no `useSelector`/`useDispatch`
+      inside a component meant to live in `components/<domain>/` (the
+      matching container in `features/containers/<domain>/` owns that — see
+      [[01-architecture]] module boundaries).
+- [ ] Styling via MUI's `sx` prop, not Tailwind `className` or inline `style`
+      objects — see [[04-ui-styling]].
 - [ ] Wrap in `memo()` only if it's rendered in a list or receives stable
       props — don't cargo-cult it onto every component.
 - [ ] No test file expected by default — no test runner is configured yet

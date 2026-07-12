@@ -6,9 +6,17 @@
 - **Figma File Access**: Get Figma file URL or shared access
 - **Design Tokens**: Extract colors, typography, spacing, components
 - **Component Library**: Identify reusable components
-- **Design System**: Create consistent theme based on Figma
+- **Design System**: Create a consistent MUI theme based on Figma
 
-### 2. Design Token Extraction
+### 2. Current state — nothing built yet
+
+`src/theme/` exists as a folder but is **empty** — there's no `createTheme()`
+call, no `<ThemeProvider>`/`<CssBaseline>` wrapping the app yet. Per the PRD's
+own screenshots, Rhynk skews toward a dark, music-app aesthetic — don't
+assume a light-mode-first palette by default when extracting tokens from
+Figma; confirm against the actual designs.
+
+### 3. Design Token Extraction
 
 #### Color Palette
 ```javascript
@@ -16,54 +24,55 @@
 export const figmaColors = {
   // Primary Colors
   primary: {
-    50: '#E3F2FD',
-    100: '#BBDEFB',
-    200: '#90CAF9',
-    300: '#64B5F6',
-    400: '#42A5F5',
-    500: '#2196F3', // Main primary
-    600: '#1E88E5',
-    700: '#1976D2',
-    800: '#1565C0',
-    900: '#0D47A1'
+    50: '#EDE9FE',
+    100: '#DDD6FE',
+    200: '#C4B5FD',
+    300: '#A78BFA',
+    400: '#8B7CF6',
+    500: '#6C5CE7', // Main primary — placeholder brand color, confirm against Figma
+    600: '#5F4DD8',
+    700: '#4F3FC2',
+    800: '#4132A0',
+    900: '#332882'
   },
-  
+
   // Secondary Colors
   secondary: {
-    50: '#F3E5F5',
-    100: '#E1BEE7',
-    200: '#CE93D8',
-    300: '#BA68C8',
-    400: '#AB47BC',
-    500: '#9C27B0', // Main secondary
-    600: '#8E24AA',
-    700: '#7B1FA2',
-    800: '#6A1B9A',
-    900: '#4A148C'
+    50: '#FCE4EC',
+    100: '#F8BBD0',
+    200: '#F48FB1',
+    300: '#F06292',
+    400: '#EC407A',
+    500: '#E91E63', // Main secondary
+    600: '#D81B60',
+    700: '#C2185B',
+    800: '#AD1457',
+    900: '#880E4F'
   },
-  
-  // Financial App Specific Colors
-  financial: {
-    success: '#2E7D32', // Green for gains
-    error: '#D32F2F',   // Red for losses
-    warning: '#F57C00', // Orange for warnings
-    info: '#1976D2',    // Blue for information
-    neutral: '#757575'  // Gray for neutral states
+
+  // Semantic status colors (call state, room connection state, upload
+  // progress — not tied to any one domain)
+  status: {
+    success: '#2E7D32',
+    error: '#D32F2F',
+    warning: '#F57C00',
+    info: '#1976D2',
+    neutral: '#757575'
   },
-  
-  // Background Colors
+
+  // Background colors — dark-first per the PRD's own screenshots
   background: {
-    default: '#FAFAFA',
-    paper: '#FFFFFF',
-    elevated: '#F5F5F5'
+    default: '#0F0F1A',
+    paper: '#1A1A2E',
+    elevated: '#22223A'
   },
-  
-  // Text Colors
+
+  // Text colors
   text: {
-    primary: '#212121',
-    secondary: '#757575',
-    disabled: '#BDBDBD',
-    hint: '#9E9E9E'
+    primary: '#F5F5F7',
+    secondary: '#B0B0C0',
+    disabled: '#6E6E80',
+    hint: '#8A8AA0'
   }
 }
 ```
@@ -77,7 +86,7 @@ export const figmaTypography = {
     secondary: 'Roboto Mono, "Courier New", monospace',
     display: 'Poppins, -apple-system, BlinkMacSystemFont, sans-serif'
   },
-  
+
   fontSize: {
     xs: '0.75rem',    // 12px
     sm: '0.875rem',   // 14px
@@ -89,7 +98,7 @@ export const figmaTypography = {
     '4xl': '2.25rem', // 36px
     '5xl': '3rem'     // 48px
   },
-  
+
   fontWeight: {
     light: 300,
     normal: 400,
@@ -98,7 +107,7 @@ export const figmaTypography = {
     bold: 700,
     extrabold: 800
   },
-  
+
   lineHeight: {
     tight: 1.25,
     normal: 1.5,
@@ -113,7 +122,7 @@ export const figmaTypography = {
 export const figmaSpacing = {
   // Base spacing unit (8px)
   unit: 8,
-  
+
   // Spacing scale
   spacing: {
     0: 0,
@@ -131,8 +140,8 @@ export const figmaSpacing = {
     24: '6rem',    // 96px
     32: '8rem'     // 128px
   },
-  
-  // Component specific spacing
+
+  // Component-specific spacing
   component: {
     buttonPadding: {
       small: '0.5rem 1rem',
@@ -140,22 +149,27 @@ export const figmaSpacing = {
       large: '1rem 2rem'
     },
     cardPadding: '1.5rem',
-    formSpacing: '1rem',
+    messageBubblePadding: '0.75rem 1rem',
     sectionSpacing: '2rem'
   }
 }
 ```
 
-### 3. MUI Theme Integration
+### 4. MUI Theme Integration
+
+This is the intended content of `src/theme/index.js` once it's actually
+built — currently that file doesn't exist:
+
 ```javascript
-// src/theme/figmaTheme.js
+// src/theme/index.js
 import { createTheme } from '@mui/material/styles'
 import { figmaColors } from './figmaColors'
 import { figmaTypography } from './figmaTypography'
 import { figmaSpacing } from './figmaSpacing'
 
-export const figmaTheme = createTheme({
+const theme = createTheme({
   palette: {
+    mode: 'dark', // confirm against Figma — PRD skews dark-first
     primary: {
       main: figmaColors.primary[500],
       light: figmaColors.primary[300],
@@ -168,18 +182,10 @@ export const figmaTheme = createTheme({
       dark: figmaColors.secondary[700],
       contrastText: '#FFFFFF'
     },
-    success: {
-      main: figmaColors.financial.success
-    },
-    error: {
-      main: figmaColors.financial.error
-    },
-    warning: {
-      main: figmaColors.financial.warning
-    },
-    info: {
-      main: figmaColors.financial.info
-    },
+    success: { main: figmaColors.status.success },
+    error: { main: figmaColors.status.error },
+    warning: { main: figmaColors.status.warning },
+    info: { main: figmaColors.status.info },
     background: {
       default: figmaColors.background.default,
       paper: figmaColors.background.paper
@@ -189,7 +195,7 @@ export const figmaTheme = createTheme({
       secondary: figmaColors.text.secondary
     }
   },
-  
+
   typography: {
     fontFamily: figmaTypography.fontFamily.primary,
     h1: {
@@ -209,21 +215,6 @@ export const figmaTheme = createTheme({
       fontWeight: figmaTypography.fontWeight.semibold,
       lineHeight: figmaTypography.lineHeight.normal
     },
-    h4: {
-      fontSize: figmaTypography.fontSize['2xl'],
-      fontWeight: figmaTypography.fontWeight.semibold,
-      lineHeight: figmaTypography.lineHeight.normal
-    },
-    h5: {
-      fontSize: figmaTypography.fontSize.xl,
-      fontWeight: figmaTypography.fontWeight.medium,
-      lineHeight: figmaTypography.lineHeight.normal
-    },
-    h6: {
-      fontSize: figmaTypography.fontSize.lg,
-      fontWeight: figmaTypography.fontWeight.medium,
-      lineHeight: figmaTypography.lineHeight.normal
-    },
     body1: {
       fontSize: figmaTypography.fontSize.base,
       fontWeight: figmaTypography.fontWeight.normal,
@@ -240,13 +231,13 @@ export const figmaTheme = createTheme({
       lineHeight: figmaTypography.lineHeight.normal
     }
   },
-  
+
   spacing: figmaSpacing.unit,
-  
+
   shape: {
-    borderRadius: 8 // 8px border radius from Figma
+    borderRadius: 8 // matches the placeholder in the state/UI rules
   },
-  
+
   components: {
     MuiButton: {
       styleOverrides: {
@@ -262,8 +253,7 @@ export const figmaTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          padding: figmaSpacing.component.cardPadding,
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
         }
       }
     },
@@ -278,9 +268,15 @@ export const figmaTheme = createTheme({
     }
   }
 })
+
+export default theme
 ```
 
-### 4. Component Mapping from Figma
+Wrap the app once in `main.jsx`/`App.jsx` with `<ThemeProvider theme={theme}>`
++ `<CssBaseline />` when this lands — neither exists yet, and `App.jsx`/
+`main.jsx` are still the unmodified `create-vite` placeholders.
+
+### 5. Component Mapping from Figma
 
 #### Button Components
 ```javascript
@@ -313,13 +309,13 @@ const getButtonStyles = (variant, size) => {
     borderRadius: 2,
     fontWeight: 500
   }
-  
+
   const sizeStyles = {
     small: { padding: '0.5rem 1rem', fontSize: '0.875rem' },
     medium: { padding: '0.75rem 1.5rem', fontSize: '1rem' },
     large: { padding: '1rem 2rem', fontSize: '1.125rem' }
   }
-  
+
   return {
     ...baseStyles,
     ...sizeStyles[size]
@@ -342,10 +338,10 @@ const AppCardComponent = ({ elevation, children, ...props }) => {
         // Figma card styles
         borderRadius: 3,
         padding: 2,
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
         transition: 'all 0.2s ease-in-out',
         '&:hover': {
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
           transform: 'translateY(-2px)'
         }
       }}
@@ -359,77 +355,59 @@ const AppCardComponent = ({ elevation, children, ...props }) => {
 }
 ```
 
-### 5. Figma Integration Checklist
+### 6. Figma Integration Checklist
 
 #### ✅ Design Token Extraction
-- [ ] Extract color palette from Figma
+- [ ] Extract color palette from Figma (confirm dark-mode-first is what the
+      actual designs show, not just assumed from the PRD's screenshots)
 - [ ] Extract typography scale and font families
 - [ ] Extract spacing system and measurements
 - [ ] Extract border radius and shadow values
 - [ ] Extract component specifications
 
 #### ✅ Theme Integration
-- [ ] Create MUI theme based on Figma tokens
+- [ ] Create `src/theme/index.js` based on Figma tokens — it doesn't exist
+      yet, this is a from-scratch build, not an edit
 - [ ] Map Figma colors to MUI palette
 - [ ] Configure typography with Figma fonts
 - [ ] Set up spacing system
 - [ ] Configure component overrides
+- [ ] Wrap the app with `<ThemeProvider>` + `<CssBaseline />` in
+      `main.jsx`/`App.jsx`
 
 #### ✅ Component Mapping
 - [ ] Map Figma components to MUI components
-- [ ] Create wrapper components for Figma designs
-- [ ] Implement Figma-specific styling
-- [ ] Ensure responsive behavior matches Figma
+- [ ] Create wrapper components under `src/components/mui/` for Figma designs
+      (see [[create-mui-wrapper]])
+- [ ] Implement Figma-specific styling via the `sx` prop only
+- [ ] Ensure responsive behavior matches Figma using MUI breakpoints
 - [ ] Test component variations
 
 #### ✅ Quality Assurance
 - [ ] Compare rendered components with Figma designs
 - [ ] Test on different screen sizes
-- [ ] Verify color accuracy
+- [ ] Verify color accuracy in both the intended dark mode and any light
+      mode variant the designs specify
 - [ ] Check typography rendering
 - [ ] Validate spacing and layout
 
-### 6. Figma Plugin Integration
-```javascript
-// scripts/extract-figma-tokens.js
-// Use Figma API to extract design tokens
-const figmaApi = require('figma-api')
-
-const extractDesignTokens = async (figmaFileId, accessToken) => {
-  const api = new figmaApi.Api({ personalAccessToken: accessToken })
-  const file = await api.getFile(figmaFileId)
-  
-  // Extract colors
-  const colors = extractColors(file)
-  
-  // Extract typography
-  const typography = extractTypography(file)
-  
-  // Extract spacing
-  const spacing = extractSpacing(file)
-  
-  return {
-    colors,
-    typography,
-    spacing
-  }
-}
-```
-
-### 7. Usage Examples
+### 7. Usage Example
 ```javascript
 // src/App.jsx
-import { ThemeProvider } from '@mui/material/styles'
-import { figmaTheme } from 'theme/figmaTheme'
-import { AppButtonComponent } from 'components/mui/AppButtonComponent'
+import { ThemeProvider, CssBaseline } from '@mui/material'
+import theme from 'theme'
+import AppButtonComponent from 'components/mui/AppButtonComponent'
 
 const App = () => {
   return (
-    <ThemeProvider theme={figmaTheme}>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <AppButtonComponent variant="contained" size="large">
-        Invest Now
+        Join Room
       </AppButtonComponent>
     </ThemeProvider>
   )
 }
+
+export default App
 ```

@@ -1,6 +1,6 @@
 # 05 — State & Data Layer (Redux Toolkit + RTK Query)
 
-## Decided approach — not yet installed
+## Decided approach — installed, not yet implemented
 
 The team has confirmed **Redux Toolkit** (global/client state) + **RTK
 Query** (server state — caching, pagination, invalidation) + a
@@ -8,15 +8,12 @@ Query** (server state — caching, pagination, invalidation) + a
 state-management architecture for this client. This supersedes both:
 
 - the PRD's mention of TanStack Query (§6.1), and
-- the `zustand ^5.0.14` dependency currently sitting in `package.json`
-  unused (see [[00-overview]]).
+- `zustand`, which has been removed from `package.json` (see [[00-overview]]).
 
-**Neither `@reduxjs/toolkit` nor `react-redux` is installed yet.** Installing
-them (and removing `zustand` once the migration is actually done — don't
-remove it preemptively if anything still depends on it) is a prerequisite
-before writing the first slice or API endpoint. Don't write Redux code
-against a store that doesn't exist yet without calling out that the install
-step comes first.
+`@reduxjs/toolkit` and `react-redux` are installed. `src/store/index.js`
+exists but is still empty — no `configureStore` call, no `baseApi`, no
+slices yet. Installed isn't the same as implemented; the store still needs
+to be built.
 
 ## Folder shape (`src/store/`)
 

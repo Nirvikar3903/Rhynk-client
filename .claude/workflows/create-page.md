@@ -2,33 +2,34 @@
 
 ## Pattern
 
-`Page` (route-level, `src/pages/`) → feature component(s) from
-`src/features/<name>/components/` → shared UI from `src/components/`. There
-is no separate "container" layer in this repo's target structure (unlike
-Redux-style container/component split) — a page composes feature components
-directly, and feature components use feature hooks for data (see
-[[01-architecture]]).
+`Page` (route-level, `src/pages/`) → container from
+`src/features/containers/<domain>/` → dumb UI from `src/components/<domain>/`
+and `src/components/mui/`. This repo **does** use a container/component
+split (see [[01-architecture]]) — a page composes one or more containers,
+and each container owns its own data-fetching (RTK Query hooks, Redux) while
+delegating rendering to plain components.
 
 ## Router — React Router v7, not v6
 
 `react-router-dom` is `^7.18.1`. v7's data APIs (loaders, actions,
-`createBrowserRouter`) are available but nothing in this repo uses them yet
-— there's no `src/router/` at all today. Decide once, when the first real
-route is added, whether routing goes through a `<Routes>`/`<Route>` tree
-(closer to v6 style, still supported in v7) or the newer data-router APIs —
-don't mix both patterns across the app.
+`createBrowserRouter`) are available. `src/router/` already exists as a
+folder but is currently empty — nothing in this repo uses either routing
+style yet. Decide once, when the first real route is added, whether routing
+goes through a `<Routes>`/`<Route>` tree (closer to v6 style, still supported
+in v7) or the newer data-router APIs — don't mix both patterns across the
+app.
 
 ## Template
 
 ```jsx
 // src/pages/ConversationsPage.jsx
-import ConversationList from 'features/conversations/components/ConversationList'
+import ConversationListContainer from 'features/containers/conversations/ConversationListContainer'
 import AppLayout from 'layouts/AppLayout'
 
 const ConversationsPage = () => {
   return (
     <AppLayout>
-      <ConversationList />
+      <ConversationListContainer />
     </AppLayout>
   )
 }
@@ -36,10 +37,12 @@ const ConversationsPage = () => {
 export default ConversationsPage
 ```
 
-`ConversationList` itself owns its data-fetching via a feature hook (see
-[[create-hook]]) — the page stays purely compositional.
+`ConversationListContainer` owns its data-fetching (via RTK Query / a hook
+from `src/hooks/` — see [[create-hook]]) and renders the dumb components
+from `src/components/conversations/` — the page itself stays purely
+compositional.
 
-## Route registration (once `src/router/` exists)
+## Route registration (`src/router/` already exists, but is empty)
 
 ```jsx
 // src/router/index.jsx
@@ -72,5 +75,5 @@ rather than speculatively.
 - [ ] Page component itself has no business logic — it composes.
 - [ ] Lazy-load pages once there's more than a couple of routes (`lazy()` +
       `Suspense`), matching the pattern above.
-- [ ] Auth-gated pages check `useAuthStore` (or equivalent), not a
-      component-local `isLoggedIn` flag.
+- [ ] Auth-gated pages check `useAuthSession`'s `isAuthenticated` (see
+      [[create-hook]]), not a component-local `isLoggedIn` flag.

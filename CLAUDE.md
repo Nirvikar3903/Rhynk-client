@@ -10,7 +10,7 @@ slice, etc.) have step-by-step playbooks in `.claude/workflows/` (mirrored in
 `.antigravity/workflows/`) — read the relevant one before starting that kind
 of task: `create-component`, `create-hook`, `create-page`, `create-form`,
 `create-api-service`, `create-redux-slice`, `create-parser`,
-`create-shadcn-component`, `create-feature-module`, `setup-encryption`,
+`create-mui-component`, `create-feature-module`, `setup-encryption`,
 `figma-integration`.
 
 @.claude/rules/00-overview.md

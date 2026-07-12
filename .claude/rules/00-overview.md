@@ -31,43 +31,43 @@ Trust `package.json` over the PRD:
 |---|---|---|
 | React | 18 | **19** (`^19.2.7`) |
 | Router | React Router v6 | **React Router v7** (`^7.18.1`) |
-| Server state / caching | TanStack Query v5 | **RTK Query** (team decision) — `@reduxjs/toolkit` not yet installed; `axios` is present but not yet wired to anything |
+| Server state / caching | TanStack Query v5 | **RTK Query** (team decision) — `@reduxjs/toolkit ^2.12.0` + `react-redux ^9.3.0` installed; `axios` is present but not yet wired to anything |
 | Type checking | TypeScript 5.x everywhere | **plain JS/JSX** — `@types/react*` present but no `.ts`/`.tsx` files, no `tsconfig.json` |
-| Styling | Tailwind CSS 3.x + shadcn/ui | **Tailwind CSS v4** via `@tailwindcss/vite` (CSS-first config, no `tailwind.config.js`) + shadcn/ui *primitives* (Radix + `class-variance-authority` + `clsx` + `tailwind-merge` + `lucide-react`) — no `components.json`, no `src/components/ui/` yet |
-| Global state / server state | Zustand 4.x + TanStack Query | **Redux Toolkit + RTK Query** — team decision, supersedes both the PRD and the `package.json` snapshot below |
+| Styling | Tailwind CSS 3.x + shadcn/ui | **MUI (Material-UI)** — team decision, supersedes the PRD's Tailwind/shadcn mention entirely. `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled` installed. SX-prop-based styling, a shared `src/theme/index.js` theme object (not yet created), wrapper components under `src/components/mui/` (currently empty) |
+| Global state / server state | Zustand 4.x + TanStack Query | **Redux Toolkit + RTK Query** — team decision, supersedes both the PRD and the `package.json` snapshot below. `zustand` has been removed |
 | Realtime | Socket.IO client 4.x | matches — `socket.io-client ^4.8.3`, installed but **unwired** (no `src/app/socket.js` yet) |
 | Toasts | not specified | `sonner` is installed |
 
 Don't silently "correct" code back to what the PRD says — if a PRD-vs-reality
 mismatch matters for what you're building, flag it and ask, don't guess.
 
-**State management — decided, not yet reflected in `package.json`:** the team
-has confirmed Redux Toolkit (with RTK Query for server state, plus a
-`store/parsers/` layer for response shaping) is the actual state-management
-approach for this client — not Zustand, despite `zustand ^5.0.14` currently
-sitting in `dependencies`, and not TanStack Query, despite the PRD naming it.
-`@reduxjs/toolkit` and `react-redux` are **not yet installed** — that install
-is a prerequisite before writing the first slice or API endpoint (see
-[[05-state-data-layer]]). Treat `zustand` as a leftover to remove once the
-store is built, not as the pattern to follow — don't add new Zustand stores.
+**State management — decided and now installed:** the team has confirmed
+Redux Toolkit (with RTK Query for server state, plus a `store/parsers/` layer
+for response shaping) as the actual state-management approach for this
+client — not Zustand (removed from `dependencies`), and not TanStack Query,
+despite the PRD naming it. `@reduxjs/toolkit` and `react-redux` are
+installed; the actual `configureStore` call, base API, and first slice still
+need to be written (see [[05-state-data-layer]]) — installation isn't
+implementation.
 
 ## Current implementation status (verify before trusting stale docs)
 
 This repo is a **bare `create-vite` React scaffold** with a handful of
 dependencies pre-installed and nothing built on top of them yet:
 
-- `src/` contains only `App.jsx` (unmodified placeholder), `main.jsx`, an
-  **empty** `index.css` (0 bytes — no `@import "tailwindcss";`, so Tailwind
-  utility classes currently do nothing even though the Vite plugin is
-  registered), and `assets/`.
+- The feature-first folder skeleton (`src/features/containers/<domain>/`,
+  `src/components/<domain>/`, `src/store/{api,parsers,slices}/`, `src/router/`,
+  `src/layouts/`, `src/pages/`, `src/hooks/`, `src/schemas/`, `src/theme/`,
+  `src/config/`) has been scaffolded — but almost every one of those folders is
+  still **empty**. `src/App.jsx`/`main.jsx` are still the unmodified
+  create-vite placeholders and `index.css` is 0 bytes.
 - No path aliases configured — no `resolve.alias` in `vite.config.js`, no
   `jsconfig.json`. Absolute imports (`features/...`, `components/...`) will
   **not resolve** until this is set up.
-- No `src/features/`, `src/app/`, `src/layouts/`, `src/pages/` — none of the
-  feature-first structure described in the LLD exists yet (see
-  [[01-architecture]]).
-- No shadcn/ui CLI setup (`components.json` absent) despite the primitive
-  packages being installed.
+- `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled`
+  are installed, but `src/theme/` and `src/components/mui/` are still empty
+  — no theme object, no `<ThemeProvider>`/`<CssBaseline>` wrapping the app,
+  no wrapper components yet (see [[04-ui-styling]]).
 - No `.env` / `.env.example` in the repo yet — no `VITE_*` variables defined.
 
 **Always check actual file contents before assuming a feature or convention is
@@ -98,7 +98,7 @@ These docs are dated July 2026 — re-verify against actual server behavior
 - [[01-architecture]] — planned feature-first structure vs. current scaffold, absolute imports, dev/backend ports
 - [[02-naming]] — files, components, hooks, feature folders, the client/server naming mismatch to watch for
 - [[03-coding-standards]] — JS/JSX only, ESLint flat config, import order
-- [[04-ui-styling]] — Tailwind v4, shadcn/ui primitives, Radix, toasts
+- [[04-ui-styling]] — MUI (Material-UI), SX styling, theme, toasts
 - [[05-state-data-layer]] — Redux Toolkit + RTK Query + parsers (not Zustand/TanStack Query), store folder shape
 - [[06-auth-security]] — client contract for the 6 auth endpoints, token lifecycle, device IDs
 - [[07-realtime-sockets]] — Socket.IO client wiring, message/room/call event contracts

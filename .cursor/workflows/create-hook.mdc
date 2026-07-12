@@ -3,405 +3,162 @@
 ## Custom Hook Creation Checklist
 
 ### 1. File Structure
-- **Location**: `src/hooks/`
-- **Naming**: camelCase with `.hook.js` suffix
-- **Example**: `useAuth.hook.js`, `useInvestment.hook.js`
-- **Export**: Named export as default
+- **Location**: `src/hooks/` — flat, cross-feature hooks live here (not
+  nested per-feature). A domain-specific hook that only makes sense inside
+  one feature (e.g. `useRoomSync` for music rooms) can live under that
+  feature's container folder instead — see [[08-music-rooms]] for that
+  precedent — but general-purpose hooks belong in the flat `src/hooks/`.
+- **Naming**: camelCase, prefixed `use`, plain `.js` — `useAuthSession.js`,
+  `useConversations.js`.
+- **Export**: default export of the hook function.
 
 ### 2. Hook Template
 ```javascript
-// src/hooks/usePortfolio.js
-import { useState, useEffect, useCallback } from 'react'
+// src/hooks/useConversations.js
+import { useState, useCallback, useMemo } from 'react'
 import { useSelector } from 'react-redux'
-import { useGetPortfolioQuery } from 'store/api/investmentApi'
+import { useGetConversationsQuery } from 'store/api/conversations.apislice'
 
-const usePortfolio = () => {
-  const [selectedTimeRange, setSelectedTimeRange] = useState('1Y')
-  const [portfolioStats, setPortfolioStats] = useState(null)
-  
-  // Redux state
-  const investments = useSelector(state => state.investment.investments)
-  const marketData = useSelector(state => state.investment.marketData)
-  
+const useConversations = () => {
+  const [searchQuery, setSearchQuery] = useState('')
+
   // RTK Query
-  const { 
-    data: portfolio, 
-    error, 
+  const {
+    data: conversations,
+    error,
     isLoading,
-    refetch 
-  } = useGetPortfolioQuery()
+    refetch
+  } = useGetConversationsQuery()
 
-  // Calculate portfolio statistics
-  const calculateStats = useCallback(() => {
-    if (!investments.length || !marketData) {
-      return {
-        totalValue: 0,
-        totalGain: 0,
-        totalGainPercentage: 0,
-        topPerformer: null
-      }
-    }
+  // Redux state (client-owned, not server cache)
+  const activeConversationId = useSelector((state) => state.presence?.activeConversationId)
 
-    const totalValue = investments.reduce((sum, investment) => {
-      const currentPrice = marketData[investment.fundId]?.nav || 0
-      return sum + (investment.units * currentPrice)
-    }, 0)
+  // Derived data
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return []
+    if (!searchQuery) return conversations
 
-    const totalInvested = investments.reduce((sum, investment) => {
-      return sum + investment.investedAmount
-    }, 0)
+    return conversations.filter((conversation) =>
+      conversation.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  }, [conversations, searchQuery])
 
-    const totalGain = totalValue - totalInvested
-    const totalGainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0
+  // Actions
+  const search = useCallback((query) => {
+    setSearchQuery(query)
+  }, [])
 
-    const topPerformer = investments.reduce((top, investment) => {
-      const currentPrice = marketData[investment.fundId]?.nav || 0
-      const gain = (currentPrice - investment.averagePrice) / investment.averagePrice
-      const topGain = top ? (top.currentPrice - top.averagePrice) / top.averagePrice : -1
-      return gain > topGain ? { ...investment, currentPrice, gain } : top
-    }, null)
-
-    return {
-      totalValue,
-      totalGain,
-      totalGainPercentage,
-      topPerformer
-    }
-  }, [investments, marketData])
-
-  // Update stats when dependencies change
-  useEffect(() => {
-    const stats = calculateStats()
-    setPortfolioStats(stats)
-  }, [calculateStats])
-
-  // Refresh portfolio data
-  const refreshPortfolio = useCallback(() => {
+  const refreshConversations = useCallback(() => {
     refetch()
   }, [refetch])
 
-  // Change time range
-  const changeTimeRange = useCallback((timeRange) => {
-    setSelectedTimeRange(timeRange)
-  }, [])
-
   return {
     // Data
-    portfolio,
-    portfolioStats,
-    selectedTimeRange,
-    
+    conversations: filteredConversations,
+    activeConversationId,
+    searchQuery,
+
     // Loading states
     isLoading,
     error,
-    
+
     // Actions
-    refreshPortfolio,
-    changeTimeRange
+    search,
+    refreshConversations
   }
 }
 
-export default usePortfolio
+export default useConversations
 ```
 
-### 3. Financial Hook Examples
+### 3. Rhynk Hook Examples
 
-#### Investment Calculator Hook
+#### Auth Session Hook
 ```javascript
-// src/hooks/useInvestmentCalculator.js
-import { useState, useCallback, useMemo } from 'react'
-
-const useInvestmentCalculator = () => {
-  const [amount, setAmount] = useState('')
-  const [duration, setDuration] = useState(12)
-  const [expectedReturn, setExpectedReturn] = useState(12)
-  const [frequency, setFrequency] = useState('monthly')
-
-  // Calculate SIP returns
-  const sipCalculation = useMemo(() => {
-    if (!amount || !duration || !expectedReturn) {
-      return {
-        totalInvested: 0,
-        totalValue: 0,
-        totalGain: 0,
-        totalGainPercentage: 0
-      }
-    }
-
-    const monthlyAmount = parseFloat(amount)
-    const months = duration
-    const monthlyRate = expectedReturn / 100 / 12
-
-    // SIP formula: A = P * [((1 + r)^n - 1) / r] * (1 + r)
-    const totalValue = monthlyAmount * 
-      (((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate))
-    
-    const totalInvested = monthlyAmount * months
-    const totalGain = totalValue - totalInvested
-    const totalGainPercentage = (totalGain / totalInvested) * 100
-
-    return {
-      totalInvested,
-      totalValue,
-      totalGain,
-      totalGainPercentage
-    }
-  }, [amount, duration, expectedReturn])
-
-  // Calculate lumpsum returns
-  const lumpsumCalculation = useMemo(() => {
-    if (!amount || !duration || !expectedReturn) {
-      return {
-        totalInvested: 0,
-        totalValue: 0,
-        totalGain: 0,
-        totalGainPercentage: 0
-      }
-    }
-
-    const investedAmount = parseFloat(amount)
-    const years = duration / 12
-    const annualRate = expectedReturn / 100
-
-    // Lumpsum formula: A = P * (1 + r)^n
-    const totalValue = investedAmount * Math.pow(1 + annualRate, years)
-    const totalGain = totalValue - investedAmount
-    const totalGainPercentage = (totalGain / investedAmount) * 100
-
-    return {
-      totalInvested: investedAmount,
-      totalValue,
-      totalGain,
-      totalGainPercentage
-    }
-  }, [amount, duration, expectedReturn])
-
-  const updateAmount = useCallback((value) => {
-    setAmount(value)
-  }, [])
-
-  const updateDuration = useCallback((value) => {
-    setDuration(value)
-  }, [])
-
-  const updateExpectedReturn = useCallback((value) => {
-    setExpectedReturn(value)
-  }, [])
-
-  const updateFrequency = useCallback((value) => {
-    setFrequency(value)
-  }, [])
-
-  return {
-    // State
-    amount,
-    duration,
-    expectedReturn,
-    frequency,
-    
-    // Calculations
-    sipCalculation,
-    lumpsumCalculation,
-    
-    // Actions
-    updateAmount,
-    updateDuration,
-    updateExpectedReturn,
-    updateFrequency
-  }
-}
-
-export default useInvestmentCalculator
-```
-
-#### Authentication Hook
-```javascript
-// src/hooks/useAuth.js
-import { useState, useEffect, useCallback } from 'react'
+// src/hooks/useAuthSession.js
+import { useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { useLoginMutation, useLogoutMutation } from 'store/api/authApi'
-import { setUser, clearUser } from 'store/slices/userSlice'
-import { getAuthTokens, clearAuthTokens } from 'utils/auth'
+import { useLoginMutation, useLogoutMutation } from 'store/api/auth.apislice'
+import { setSession, clearSession, selectUser, selectIsAuthenticated } from 'store/slices/auth.slice'
+import { getDeviceId } from 'config/device'
 
-const useAuth = () => {
+const useAuthSession = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  
-  const [isInitialized, setIsInitialized] = useState(false)
-  
-  // Redux state
-  const user = useSelector(state => state.user.profile)
-  const isAuthenticated = useSelector(state => state.user.isAuthenticated)
-  
-  // RTK Query mutations
+
+  const user = useSelector(selectUser)
+  const isAuthenticated = useSelector(selectIsAuthenticated)
+
   const [login, { isLoading: isLoggingIn }] = useLoginMutation()
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation()
 
-  // Initialize auth state
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const tokens = getAuthTokens()
-        if (tokens?.accessToken) {
-          // Verify token and get user data
-          // This would typically be an API call
-          const userData = await verifyToken(tokens.accessToken)
-          if (userData) {
-            dispatch(setUser(userData))
-          } else {
-            clearAuthTokens()
-          }
-        }
-      } catch (error) {
-        console.error('Auth initialization failed:', error)
-        clearAuthTokens()
-      } finally {
-        setIsInitialized(true)
-      }
-    }
-
-    initializeAuth()
-  }, [dispatch])
-
-  // Login function
-  const handleLogin = useCallback(async (credentials) => {
+  // Login — deviceType is always 'WEB' for this client, deviceId is
+  // generated once and persisted in localStorage (see config/device.js)
+  const handleLogin = useCallback(async ({ email, password }) => {
     try {
-      const response = await login(credentials).unwrap()
-      
-      // Store tokens
-      setAuthTokens({
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken
-      })
-      
-      // Update user state
-      dispatch(setUser(response.user))
-      
-      // Navigate to dashboard
-      navigate('/dashboard')
-      
+      const response = await login({
+        email,
+        password,
+        deviceId: getDeviceId(),
+        deviceType: 'WEB'
+      }).unwrap()
+
+      dispatch(setSession({ user: response.user, accessToken: response.accessToken }))
+      navigate('/conversations')
+
       return { success: true }
     } catch (error) {
-      console.error('Login failed:', error)
-      return { 
-        success: false, 
-        error: error.data?.message || 'Login failed' 
+      return {
+        success: false,
+        error: error.data?.error || 'LOGIN_FAILED'
       }
     }
   }, [login, dispatch, navigate])
 
-  // Logout function
+  // Logout — always send deviceId, and always clear local session even if
+  // the API call itself fails
   const handleLogout = useCallback(async () => {
     try {
-      await logout().unwrap()
+      await logout({ deviceId: getDeviceId() }).unwrap()
     } catch (error) {
-      console.error('Logout API failed:', error)
+      console.error('Logout API call failed:', error)
     } finally {
-      // Always clear local state
-      clearAuthTokens()
-      dispatch(clearUser())
+      dispatch(clearSession())
       navigate('/login')
     }
   }, [logout, dispatch, navigate])
 
-  // Check if user has specific permission
-  const hasPermission = useCallback((permission) => {
-    return user?.permissions?.includes(permission) || false
-  }, [user])
-
-  // Check if user has specific role
-  const hasRole = useCallback((role) => {
-    return user?.role === role
-  }, [user])
-
   return {
-    // State
     user,
     isAuthenticated,
-    isInitialized,
     isLoggingIn,
     isLoggingOut,
-    
-    // Actions
     login: handleLogin,
-    logout: handleLogout,
-    hasPermission,
-    hasRole
+    logout: handleLogout
   }
 }
 
-export default useAuth
+export default useAuthSession
 ```
 
-#### Form Validation Hook
+#### Debounced Search Hook (generic utility)
 ```javascript
-// src/hooks/useFormValidation.js
-import { useState, useCallback } from 'react'
-import * as yup from 'yup'
+// src/hooks/useDebounce.js
+import { useState, useEffect } from 'react'
 
-const useFormValidation = (schema) => {
-  const [errors, setErrors] = useState({})
-  const [isValid, setIsValid] = useState(false)
+const useDebounce = (value, delayMs = 300) => {
+  const [debouncedValue, setDebouncedValue] = useState(value)
 
-  const validateField = useCallback(async (fieldName, value) => {
-    try {
-      await schema.validateAt(fieldName, { [fieldName]: value })
-      setErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[fieldName]
-        return newErrors
-      })
-      return true
-    } catch (error) {
-      setErrors(prev => ({
-        ...prev,
-        [fieldName]: error.message
-      }))
-      return false
-    }
-  }, [schema])
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delayMs)
+    return () => clearTimeout(timer)
+  }, [value, delayMs])
 
-  const validateForm = useCallback(async (data) => {
-    try {
-      await schema.validate(data, { abortEarly: false })
-      setErrors({})
-      setIsValid(true)
-      return true
-    } catch (error) {
-      const newErrors = {}
-      error.inner.forEach(err => {
-        newErrors[err.path] = err.message
-      })
-      setErrors(newErrors)
-      setIsValid(false)
-      return false
-    }
-  }, [schema])
-
-  const clearErrors = useCallback(() => {
-    setErrors({})
-  }, [])
-
-  const clearFieldError = useCallback((fieldName) => {
-    setErrors(prev => {
-      const newErrors = { ...prev }
-      delete newErrors[fieldName]
-      return newErrors
-    })
-  }, [])
-
-  return {
-    errors,
-    isValid,
-    validateField,
-    validateForm,
-    clearErrors,
-    clearFieldError
-  }
+  return debouncedValue
 }
 
-export default useFormValidation
+export default useDebounce
 ```
 
 ### 4. Hook Requirements Checklist
@@ -412,14 +169,20 @@ export default useFormValidation
 - [ ] Use proper dependency arrays in useEffect/useCallback
 - [ ] Include JSDoc comments for complex hooks
 - [ ] Handle loading and error states
-- [ ] Clean up subscriptions and timers
+- [ ] Clean up subscriptions and timers (socket listeners, `setInterval`
+      for the [[08-music-rooms]] 30s re-sync, etc.)
 
-#### ✅ Financial App Specific
-- [ ] Include proper error handling for API calls
-- [ ] Use financial data formatting utilities
-- [ ] Include validation for financial calculations
-- [ ] Add proper loading states for async operations
-- [ ] Include cleanup for real-time data subscriptions
+#### ✅ Rhynk Specific
+- [ ] Compose RTK Query hooks + `useSelector` rather than reimplementing
+      caching/loading state by hand
+- [ ] For anything socket-driven (typing indicators, presence, room sync),
+      register/unregister listeners inside `useEffect` and clean up on
+      unmount — remember `src/app/socket.js` doesn't exist yet, so a hook
+      that needs it should note that dependency rather than assume it
+- [ ] Don't duplicate server-derived data into a hook's own `useState` —
+      read it from the RTK Query cache; local `useState` is for genuinely
+      hook-local UI state only (see the state-layer rules' "would anyone
+      care if a refresh lost it" framing)
 
 #### ✅ Performance
 - [ ] Use useCallback for event handlers
@@ -427,54 +190,36 @@ export default useFormValidation
 - [ ] Avoid unnecessary re-renders
 - [ ] Clean up side effects properly
 
-### 5. Testing Template
+### 5. Testing
+
+No test runner (Vitest/Jest) is configured in this repo yet — the template
+below is the intended shape once one is added, not something that runs today.
+
 ```javascript
-// src/hooks/__tests__/usePortfolio.test.js
-import { renderHook, act } from '@testing-library/react'
+// src/hooks/__tests__/useConversations.test.js
+import { renderHook } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import usePortfolio from '../usePortfolio'
+import useConversations from '../useConversations'
 
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: {
-      investment: (state = initialState, action) => state
+      presence: (state = initialState, action) => state
     }
   })
 }
 
 const wrapper = ({ children }) => {
-  const store = createMockStore({
-    investments: [
-      { id: '1', units: 100, averagePrice: 50, fundId: 'fund1' },
-      { id: '2', units: 200, averagePrice: 25, fundId: 'fund2' }
-    ],
-    marketData: {
-      fund1: { nav: 60 },
-      fund2: { nav: 30 }
-    }
-  })
-  
+  const store = createMockStore({ activeConversationId: 'conv-1' })
   return <Provider store={store}>{children}</Provider>
 }
 
-describe('usePortfolio', () => {
-  it('calculates portfolio value correctly', () => {
-    const { result } = renderHook(() => usePortfolio(), { wrapper })
-    
-    expect(result.current.portfolioStats.totalValue).toBe(12000) // (100 * 60) + (200 * 30)
-    expect(result.current.portfolioStats.totalGain).toBe(2000) // 12000 - 10000
-    expect(result.current.portfolioStats.totalGainPercentage).toBe(20) // (2000 / 10000) * 100
-  })
+describe('useConversations', () => {
+  it('exposes the active conversation id from Redux', () => {
+    const { result } = renderHook(() => useConversations(), { wrapper })
 
-  it('updates time range correctly', () => {
-    const { result } = renderHook(() => usePortfolio(), { wrapper })
-    
-    act(() => {
-      result.current.changeTimeRange('6M')
-    })
-    
-    expect(result.current.selectedTimeRange).toBe('6M')
+    expect(result.current.activeConversationId).toBe('conv-1')
   })
 })
 ```
@@ -482,24 +227,21 @@ describe('usePortfolio', () => {
 ### 6. Common Hook Patterns
 
 #### Data Fetching Hooks
-- `useFunds` - Fetch and manage fund data
-- `usePortfolio` - Portfolio calculations and management
-- `useTransactions` - Transaction history management
-- `useMarketData` - Real-time market data
+- `useConversations` - Fetch and manage the conversation list
+- `useMessages` - Cursor-paginated message history for a conversation
+- `useMusicRoomQueue` - Track queue for a music room
+- `useNotifications` - Unread notification management
 
-#### Form Hooks
-- `useFormValidation` - Form validation logic
-- `useFormSubmission` - Form submission handling
-- `useFormPersistence` - Form data persistence
+#### Auth Hooks
+- `useAuthSession` - Login/logout/session state
+- `useDeviceId` - Read/generate the persisted `deviceId`
 
 #### UI Hooks
 - `useModal` - Modal state management
-- `useToast` - Toast notification management
-- `useTheme` - Theme switching logic
-- `useResponsive` - Responsive design helpers
+- `useToast` - Wraps `sonner` for consistent toast usage
+- `useResponsive` - Responsive design helpers via MUI breakpoints
 
 #### Utility Hooks
 - `useLocalStorage` - Local storage management
 - `useDebounce` - Debounced value updates
-- `useThrottle` - Throttled function calls
 - `usePrevious` - Previous value tracking

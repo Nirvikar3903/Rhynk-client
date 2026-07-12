@@ -1,10 +1,29 @@
 # Capacitor.js Mobile Development
 
-## Capacitor.js Integration
+## Speculative / not a confirmed part of Rhynk's stack
+
+**Capacitor is not installed and not mentioned anywhere in Rhynk's actual
+product docs** (`docs/Rhynk_PRD_v2.2.pdf`, `docs/rhynk_hld.pdf`,
+`docs/rhynk_lld.pdf`, `docs/AUTH_MODULE.md`). There is no
+`@capacitor/core` in `package.json`, no `capacitor.config.*` in the repo,
+and no evidence of a planned native-mobile-hybrid strategy for this
+project. This file is **deferred, speculative reference only** — patterns
+to fall back on *if* the team later decides to wrap this web client in
+Capacitor for Android/iOS distribution. Don't import from any `@capacitor/*`
+package, don't build UI that branches on `isNative()`/`isMobile()`, and
+don't treat anything below as already wired up. If Capacitor is adopted,
+that's a deliberate, separate decision to record in `00-project-overview.mdc`
+and `package.json` first.
+
+The code patterns below are otherwise generic (platform detection, touch
+targets, safe-area insets) and harmless to keep as a reference for that
+hypothetical future — just don't act on them today.
+
+## Capacitor.js Integration (if adopted)
 
 ### Platform Detection
 ```javascript
-// src/utils/platform.js
+// src/utils/platform.utils.js
 import { Capacitor } from '@capacitor/core'
 
 export const isNative = () => Capacitor.isNativePlatform()
@@ -17,15 +36,9 @@ export const isMobile = () => isIOS() || isAndroid()
 
 // Usage in components
 const ResponsiveComponent = () => {
-  const platform = getPlatform()
-  
   return (
     <div>
-      {isMobile() ? (
-        <MobileLayout />
-      ) : (
-        <DesktopLayout />
-      )}
+      {isMobile() ? <MobileLayout /> : <DesktopLayout />}
     </div>
   )
 }
@@ -62,16 +75,16 @@ const useDeviceInfo = () => {
 export default useDeviceInfo
 ```
 
-## Mobile-Specific UI Patterns
+## Mobile-Specific UI Patterns (if adopted)
 
 ### Touch-Optimized Components
 ```javascript
-// src/components/mobile/TouchButton.jsx
+// src/components/mobile/TouchButtonComponent.jsx
 import React from 'react'
 import { Button } from '@mui/material'
-import { isMobile } from 'utils/platform'
+import { isMobile } from 'utils/platform.utils'
 
-const TouchButton = ({ children, ...props }) => {
+const TouchButtonComponent = ({ children, ...props }) => {
   return (
     <Button
       {...props}
@@ -90,34 +103,25 @@ const TouchButton = ({ children, ...props }) => {
   )
 }
 
-export default TouchButton
+export default TouchButtonComponent
 ```
 
 ### Mobile Navigation
 ```javascript
-// src/components/mobile/MobileNavigation.jsx
+// src/components/mobile/MobileNavigationComponent.jsx
 import React, { useState } from 'react'
-import { 
-  BottomNavigation, 
-  BottomNavigationAction,
-  Paper
-} from '@mui/material'
-import { 
-  Home, 
-  TrendingUp, 
-  AccountBalance, 
-  Person 
-} from '@mui/icons-material'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material'
+import { Home, MusicNote, Chat, Person } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
+import { isMobile } from 'utils/platform.utils'
 
-const MobileNavigation = () => {
+const MobileNavigationComponent = () => {
   const navigate = useNavigate()
-  const location = useLocation()
   const [value, setValue] = useState(0)
 
   const handleChange = (event, newValue) => {
     setValue(newValue)
-    const routes = ['/dashboard', '/portfolio', '/investment', '/profile']
+    const routes = ['/conversations', '/music-rooms', '/stories', '/profile']
     navigate(routes[newValue])
   }
 
@@ -125,73 +129,25 @@ const MobileNavigation = () => {
   if (!isMobile()) return null
 
   return (
-    <Paper 
-      sx={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        zIndex: 1000 
-      }} 
-      elevation={3}
-    >
+    <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }} elevation={3}>
       <BottomNavigation value={value} onChange={handleChange}>
-        <BottomNavigationAction
-          label="Dashboard"
-          icon={<Home />}
-        />
-        <BottomNavigationAction
-          label="Portfolio"
-          icon={<TrendingUp />}
-        />
-        <BottomNavigationAction
-          label="Investment"
-          icon={<AccountBalance />}
-        />
-        <BottomNavigationAction
-          label="Profile"
-          icon={<Person />}
-        />
+        <BottomNavigationAction label="Chats" icon={<Chat />} />
+        <BottomNavigationAction label="Rooms" icon={<MusicNote />} />
+        <BottomNavigationAction label="Stories" icon={<Home />} />
+        <BottomNavigationAction label="Profile" icon={<Person />} />
       </BottomNavigation>
     </Paper>
   )
 }
 
-export default MobileNavigation
+export default MobileNavigationComponent
 ```
 
-### Mobile-First Responsive Design
-```javascript
-// src/components/mobile/ResponsiveContainer.jsx
-import React from 'react'
-import { Box } from '@mui/material'
-import { isMobile } from 'utils/platform'
-
-const ResponsiveContainer = ({ children, ...props }) => {
-  return (
-    <Box
-      sx={{
-        p: isMobile() ? 2 : 3,
-        maxWidth: isMobile() ? '100%' : '1200px',
-        mx: 'auto',
-        minHeight: isMobile() ? 'calc(100vh - 56px)' : '100vh', // Account for bottom nav
-        pb: isMobile() ? '80px' : 0, // Space for bottom navigation
-        ...props.sx
-      }}
-    >
-      {children}
-    </Box>
-  )
-}
-
-export default ResponsiveContainer
-```
-
-## Native Plugin Usage
+## Native Plugin Usage (if adopted)
 
 ### Biometric Authentication
 ```javascript
-// src/utils/biometricAuth.js
+// src/utils/biometricAuth.utils.js
 import { BiometricAuth } from '@capacitor-community/biometric-auth'
 
 export const isBiometricAvailable = async () => {
@@ -207,12 +163,12 @@ export const isBiometricAvailable = async () => {
 export const authenticateWithBiometric = async () => {
   try {
     const result = await BiometricAuth.authenticate({
-      reason: 'Authenticate to access your investment portfolio',
+      reason: 'Authenticate to access your account',
       title: 'Biometric Authentication',
       subtitle: 'Use your fingerprint or face to continue',
-      description: 'This ensures only you can access your financial data'
+      description: 'This ensures only you can access your messages and rooms'
     })
-    
+
     return result.isAuthenticated
   } catch (error) {
     console.error('Biometric authentication failed:', error)
@@ -231,33 +187,25 @@ const LoginWithBiometric = () => {
   const handleBiometricLogin = async () => {
     const success = await authenticateWithBiometric()
     if (success) {
-      // Proceed with login
-      navigate('/dashboard')
+      navigate('/conversations')
     }
   }
 
   if (!biometricAvailable) return null
 
-  return (
-    <Button onClick={handleBiometricLogin}>
-      Login with Biometric
-    </Button>
-  )
+  return <Button onClick={handleBiometricLogin}>Login with Biometric</Button>
 }
 ```
 
 ### Device Storage
 ```javascript
-// src/utils/deviceStorage.js
+// src/utils/deviceStorage.utils.js
 import { Preferences } from '@capacitor/preferences'
 
 export const deviceStorage = {
   set: async (key, value) => {
     try {
-      await Preferences.set({
-        key,
-        value: JSON.stringify(value)
-      })
+      await Preferences.set({ key, value: JSON.stringify(value) })
     } catch (error) {
       console.error('Failed to save to device storage:', error)
     }
@@ -280,23 +228,6 @@ export const deviceStorage = {
       console.error('Failed to remove from device storage:', error)
     }
   }
-}
-
-// Usage for storing user preferences
-const useUserPreferences = () => {
-  const [preferences, setPreferences] = useState({})
-
-  useEffect(() => {
-    deviceStorage.get('userPreferences').then(setPreferences)
-  }, [])
-
-  const updatePreferences = async (newPreferences) => {
-    const updated = { ...preferences, ...newPreferences }
-    setPreferences(updated)
-    await deviceStorage.set('userPreferences', updated)
-  }
-
-  return { preferences, updatePreferences }
 }
 ```
 
@@ -337,35 +268,18 @@ const useNetworkStatus = () => {
 
   return { isOnline, connectionType }
 }
-
-// Usage in components
-const NetworkAwareComponent = () => {
-  const { isOnline, connectionType } = useNetworkStatus()
-
-  if (!isOnline) {
-    return (
-      <Alert severity="warning">
-        You are offline. Some features may not be available.
-      </Alert>
-    )
-  }
-
-  return <div>Online content</div>
-}
 ```
 
 ### Push Notifications
 ```javascript
-// src/utils/pushNotifications.js
+// src/utils/pushNotifications.utils.js
 import { PushNotifications } from '@capacitor/push-notifications'
 
 export const initializePushNotifications = async () => {
   try {
-    // Request permissions
     const permStatus = await PushNotifications.requestPermissions()
-    
+
     if (permStatus.receive === 'granted') {
-      // Register for push notifications
       await PushNotifications.register()
     }
   } catch (error) {
@@ -374,40 +288,35 @@ export const initializePushNotifications = async () => {
 }
 
 export const setupPushListeners = () => {
-  // Handle registration
   PushNotifications.addListener('registration', (token) => {
     console.log('Push registration success, token: ' + token.value)
     // Send token to your server
   })
 
-  // Handle registration errors
   PushNotifications.addListener('registrationError', (error) => {
     console.error('Push registration error:', error)
   })
 
-  // Handle incoming notifications
   PushNotifications.addListener('pushNotificationReceived', (notification) => {
     console.log('Push notification received:', notification)
-    // Handle notification display
+    // e.g. surface an incoming message or call notification
   })
 
-  // Handle notification actions
   PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
     console.log('Push notification action performed:', notification)
-    // Handle notification action
   })
 }
 ```
 
-## Mobile-Specific Features
+## Mobile-Specific Features (if adopted)
 
 ### Pull-to-Refresh
 ```javascript
-// src/components/mobile/PullToRefresh.jsx
+// src/components/mobile/PullToRefreshComponent.jsx
 import React, { useState } from 'react'
 import { Box, CircularProgress } from '@mui/material'
 
-const PullToRefresh = ({ children, onRefresh }) => {
+const PullToRefreshComponent = ({ children, onRefresh }) => {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [startY, setStartY] = useState(0)
   const [pullDistance, setPullDistance] = useState(0)
@@ -419,8 +328,7 @@ const PullToRefresh = ({ children, onRefresh }) => {
   const handleTouchMove = (e) => {
     if (window.scrollY === 0) {
       const currentY = e.touches[0].clientY
-      const distance = Math.max(0, currentY - startY)
-      setPullDistance(distance)
+      setPullDistance(Math.max(0, currentY - startY))
     }
   }
 
@@ -450,15 +358,7 @@ const PullToRefresh = ({ children, onRefresh }) => {
       }}
     >
       {isRefreshing && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -50,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1000
-          }}
-        >
+        <Box sx={{ position: 'absolute', top: -50, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
           <CircularProgress size={24} />
         </Box>
       )}
@@ -467,13 +367,13 @@ const PullToRefresh = ({ children, onRefresh }) => {
   )
 }
 
-export default PullToRefresh
+export default PullToRefreshComponent
 ```
 
 ### Mobile Gestures
 ```javascript
 // src/hooks/useSwipeGesture.js
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 
 const useSwipeGesture = (onSwipeLeft, onSwipeRight) => {
   const [touchStart, setTouchStart] = useState(null)
@@ -494,111 +394,34 @@ const useSwipeGesture = (onSwipeLeft, onSwipeRight) => {
     if (!touchStart || !touchEnd) return
 
     const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe && onSwipeLeft) {
-      onSwipeLeft()
-    }
-    if (isRightSwipe && onSwipeRight) {
-      onSwipeRight()
-    }
+    if (distance > minSwipeDistance && onSwipeLeft) onSwipeLeft()
+    if (distance < -minSwipeDistance && onSwipeRight) onSwipeRight()
   }
 
-  return {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd
-  }
+  return { onTouchStart, onTouchMove, onTouchEnd }
 }
 
-// Usage
-const SwipeableCard = () => {
+// Usage — e.g. swipe between stories
+const SwipeableStory = () => {
   const swipeHandlers = useSwipeGesture(
-    () => console.log('Swiped left'),
-    () => console.log('Swiped right')
+    () => console.log('Next story'),
+    () => console.log('Previous story')
   )
 
-  return (
-    <div {...swipeHandlers}>
-      Swipe me!
-    </div>
-  )
+  return <div {...swipeHandlers}>Story content</div>
 }
 ```
 
-## Mobile Performance
-
-### Image Optimization
-```javascript
-// src/components/mobile/OptimizedImage.jsx
-import React, { useState } from 'react'
-import { Box, Skeleton } from '@mui/material'
-import { isMobile } from 'utils/platform'
-
-const OptimizedImage = ({ src, alt, ...props }) => {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  const handleLoad = () => {
-    setLoading(false)
-  }
-
-  const handleError = () => {
-    setLoading(false)
-    setError(true)
-  }
-
-  return (
-    <Box position="relative" {...props}>
-      {loading && (
-        <Skeleton 
-          variant="rectangular" 
-          width="100%" 
-          height={isMobile() ? 200 : 300} 
-        />
-      )}
-      {!error && (
-        <img
-          src={src}
-          alt={alt}
-          onLoad={handleLoad}
-          onError={handleError}
-          style={{
-            display: loading ? 'none' : 'block',
-            width: '100%',
-            height: 'auto',
-            objectFit: 'cover'
-          }}
-          loading="lazy"
-        />
-      )}
-      {error && (
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          height={isMobile() ? 200 : 300}
-          bgcolor="grey.100"
-        >
-          Image failed to load
-        </Box>
-      )}
-    </Box>
-  )
-}
-
-export default OptimizedImage
-```
+## Mobile Performance (if adopted)
 
 ### SafeAreaView for Mobile
 ```javascript
-// src/components/mobile/SafeAreaView.jsx
+// src/components/mobile/SafeAreaViewComponent.jsx
 import React from 'react'
 import { Box } from '@mui/material'
-import { isMobile } from 'utils/platform'
+import { isMobile } from 'utils/platform.utils'
 
-const SafeAreaView = ({ children, ...props }) => {
+const SafeAreaViewComponent = ({ children, ...props }) => {
   return (
     <Box
       sx={{
@@ -615,7 +438,7 @@ const SafeAreaView = ({ children, ...props }) => {
   )
 }
 
-export default SafeAreaView
+export default SafeAreaViewComponent
 ```
 
 ### Mobile-Specific CSS
@@ -626,47 +449,26 @@ export default SafeAreaView
   input[type="text"],
   input[type="email"],
   input[type="password"],
-  input[type="number"],
-  textarea,
-  select {
+  textarea {
     font-size: 16px;
   }
 
-  /* Smooth scrolling */
   html {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Remove tap highlights */
   * {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Optimize touch targets */
-  button,
-  a,
-  input,
-  select,
-  textarea {
+  button, a, input, select, textarea {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Safe area support */
-  .safe-area-top {
-    padding-top: env(safe-area-inset-top);
-  }
-  
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  
-  .safe-area-left {
-    padding-left: env(safe-area-inset-left);
-  }
-  
-  .safe-area-right {
-    padding-right: env(safe-area-inset-right);
-  }
+  .safe-area-top { padding-top: env(safe-area-inset-top); }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-area-left { padding-left: env(safe-area-inset-left); }
+  .safe-area-right { padding-right: env(safe-area-inset-right); }
 }
 ```

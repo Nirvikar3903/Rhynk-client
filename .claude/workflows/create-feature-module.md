@@ -14,10 +14,12 @@ PRD §8.3: "Auth before Users").
 ## Structure to create (only what's actually needed — don't scaffold empty stubs)
 
 ```
-src/features/<name>/
-├── components/     # feature-scoped UI (see [[create-component]])
-└── hooks/          # feature-scoped hooks composing RTK Query + slice state (see [[create-hook]])
+src/components/<name>/            # dumb, props-only UI (see [[create-component]])
+src/features/containers/<name>/   # business logic: RTK Query hooks, Redux, composes components/<name>/
 ```
+
+Cross-cutting hooks (composing RTK Query hooks + slice state) live flat in
+`src/hooks/`, not nested inside the feature folder (see [[create-hook]]).
 
 REST calls and state for the feature live in `src/store/`, not inside the
 feature folder (see [[01-architecture]] — this repo centralizes RTK Query

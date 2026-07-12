@@ -1,50 +1,116 @@
 # 04 — UI & Styling
 
-## Tailwind CSS v4 — CSS-first, not the v3 setup the PRD describes
+## MUI (Material-UI) — the decided UI library, installed
 
-`@tailwindcss/vite` is registered as a Vite plugin (`vite.config.js`). Tailwind
-v4 does **not** use a `tailwind.config.js` / `postcss.config.js` pair the way
-v3 does — there is none in this repo, and there shouldn't need to be one for
-basic usage. Instead, Tailwind is enabled per-stylesheet via
-`@import "tailwindcss";` in a CSS file that gets loaded.
+The team has confirmed **MUI** as the UI library for this client — not
+Tailwind CSS/shadcn-ui. `@mui/material`, `@mui/icons-material`,
+`@emotion/react`, `@emotion/styled` are installed; the entire Tailwind/Radix/
+shadcn dependency set (`@tailwindcss/vite`, `tailwindcss`, `@radix-ui/react-*`,
+`class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`) has been
+removed from `package.json` — there's nothing left to accidentally build
+against.
 
-**Known gap right now:** `src/index.css` is 0 bytes. It is never populated
-with `@import "tailwindcss";`, so despite the plugin being registered,
-Tailwind utility classes currently do nothing anywhere in the app (e.g.
-`App.jsx`'s `text-3xl font-bold underline` renders unstyled). This must be
-fixed (add the import to `index.css`, confirm `main.jsx` imports that CSS
-file) before any Tailwind class will visibly work — verify this is still true
-before assuming Tailwind "just works" because the plugin is present.
+Installed doesn't mean implemented: there's no theme object, no
+`<ThemeProvider>`/`<CssBaseline>` wrapping the app, and `src/components/mui/`
+is still empty — see below.
 
-If v4-style theme customization is needed later, it goes in CSS via `@theme`
-blocks in the same entry stylesheet, not in a JS config file.
+## Styling — SX prop, not Tailwind classes
 
-## shadcn/ui — primitives installed, CLI scaffolding not run yet
+All custom styling goes through MUI's `sx` prop (or `styled()` for reusable
+style-heavy components) — not `className` + Tailwind utilities, not inline
+`style` objects.
 
-The dependency set matches a shadcn/ui setup: `@radix-ui/react-*` primitives
-(avatar, dialog, dropdown-menu, label, toast, tooltip), `class-variance-authority`,
-`clsx`, `tailwind-merge`, `lucide-react`. However:
+```jsx
+// ✅ Correct
+import { Box, Card, Typography } from '@mui/material'
 
-- No `components.json` (the shadcn CLI's config file) exists.
-- No `src/components/ui/` directory exists.
-- No `cn()` utility (the typical `clsx` + `tailwind-merge` merge helper) has
-  been created yet.
+const RoomMemberCard = ({ member, isDj }) => (
+  <Card
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1.5,
+      p: 1.5,
+      borderRadius: 2,
+      border: isDj ? '2px solid' : '1px solid',
+      borderColor: isDj ? 'primary.main' : 'divider',
+    }}
+  >
+    <Typography variant="body2" sx={{ fontWeight: isDj ? 600 : 400 }}>
+      {member.displayName}
+    </Typography>
+  </Card>
+)
 
-Before building shadcn-style wrapper components, either run the shadcn CLI
-init (needs the Tailwind v4 + alias setup from [[01-architecture]] in place
-first) or hand-write the `cn()` helper and per-component wrappers consistent
-with shadcn's usual output shape (a thin wrapper around each Radix primitive
-using `cva` for variants). Don't invent a different UI pattern in parallel —
-the installed deps signal the intended one.
+// ❌ Avoid — Tailwind classes, no longer the styling approach
+const RoomMemberCard = ({ member }) => (
+  <div className="flex items-center gap-2 rounded-lg border p-3">...</div>
+)
+```
+
+## Theme
+
+`src/theme/` exists as a folder but is empty — the theme object hasn't been
+created yet. When it is:
+
+```javascript
+// src/theme/index.js
+import { createTheme } from '@mui/material/styles'
+
+const theme = createTheme({
+  palette: {
+    primary: { main: '#6C5CE7' }, // placeholder — align with actual brand color once defined
+    background: { default: '#0F0F1A' }, // Rhynk skews toward a dark, music-app aesthetic per the PRD's own screenshots — confirm before assuming light-mode-first
+  },
+  shape: { borderRadius: 8 },
+})
+
+export default theme
+```
+
+Wrap the app once in `main.jsx`/`App.jsx` with `<ThemeProvider theme={theme}>`
++ `<CssBaseline />` — neither exists yet.
+
+## MUI wrapper components — `src/components/mui/`
+
+`src/components/mui/` already exists as an empty folder (see
+[[01-architecture]]) — the convention is to wrap every MUI primitive the app
+actually uses (Button, TextField, Card, Dialog, …) rather than importing
+`@mui/material` components directly all over the codebase, so theme-level
+behavior (loading states, consistent `sx` defaults) has one place to live.
+See [[create-mui-component]] for the concrete template and naming
+(`AppButtonComponent.jsx`, PascalCase + `Component` suffix, per
+[[02-naming]]).
 
 ## Toasts
 
-`sonner` is installed for toast notifications — use it rather than adding
-another toast library or hand-rolling one, once notifications are needed
-(e.g. surfacing `OTP_INVALID`, `SESSION_REVOKED`, etc. from the auth API —
-see [[06-auth-security]]).
+`sonner` is installed for toast notifications — keep using it (it's
+independent of the UI library choice) rather than reaching for MUI's
+`Snackbar`/`Alert` for transient notifications. Use it for surfacing
+`OTP_INVALID`, `SESSION_REVOKED`, etc. from the auth API — see
+[[06-auth-security]].
 
 ## Icons
 
-`lucide-react` is the icon set already installed — prefer it over adding a
-second icon library.
+`@mui/icons-material` is installed — use it for consistency with MUI's
+theming (icons pick up `color`/`sx` the same way MUI components do).
+`lucide-react` (the shadcn-era icon set) has been removed — there's no
+second icon library to accidentally reach for.
+
+## Responsive design — MUI breakpoints
+
+Use MUI's breakpoint object (`xs`, `sm`, `md`, `lg`, `xl`) inside `sx`, not
+Tailwind's `sm:`/`md:` class prefixes:
+
+```jsx
+<Box
+  sx={{
+    p: { xs: 2, sm: 3, md: 4 },
+    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+    display: 'grid',
+    gap: 2,
+  }}
+>
+  {/* ... */}
+</Box>
+```

@@ -6,19 +6,20 @@ Neither `react-hook-form` nor a schema-validation library (`yup`/`zod`) is
 in `package.json`. This is an open decision, same category as the TanStack
 Query gap in [[05-state-data-layer]] — don't silently pick one mid-feature.
 
-- If a form library gets added, `react-hook-form` + `zod` is the more
-  idiomatic pairing with a shadcn/ui-style component set (shadcn's own form
-  primitives are built on exactly that combination) — a stronger default
-  here than `yup`, which the unrelated reference project used.
-- Until then, plain controlled components with local `useState` is the
-  fallback — shown below.
+- If a form library gets added, `react-hook-form` + a schema-validation
+  library (`yup` or `zod`) is the natural pairing with MUI's `<Controller>`
+  pattern (wrap each MUI input in a `Controller`, driven by a
+  `yupResolver`/`zodResolver` schema).
+- Until then, plain controlled components with local `useState` and MUI form
+  primitives is the fallback — shown below.
 
 ## Template — plain controlled form (current default)
 
 ```jsx
-// src/features/auth/components/LoginForm.jsx
+// src/components/auth/LoginForm.jsx
 import { useState } from 'react'
-import Button from 'components/ui/button'
+import { Box, TextField, Typography } from '@mui/material'
+import { AppButtonComponent } from 'components/mui'
 
 const LoginForm = ({ onSubmit, isSubmitting = false }) => {
   const [email, setEmail] = useState('')
@@ -38,26 +39,32 @@ const LoginForm = ({ onSubmit, isSubmitting = false }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <input
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <TextField
         type="email"
+        label="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
-        className="rounded-md border px-3 py-2"
+        fullWidth
       />
-      <input
+      <TextField
         type="password"
+        label="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
-        className="rounded-md border px-3 py-2"
+        fullWidth
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={isSubmitting}>
+      {error && (
+        <Typography variant="body2" color="error">
+          {error}
+        </Typography>
+      )}
+      <AppButtonComponent type="submit" disabled={isSubmitting}>
         {isSubmitting ? 'Signing in…' : 'Sign in'}
-      </Button>
-    </form>
+      </AppButtonComponent>
+    </Box>
   )
 }
 

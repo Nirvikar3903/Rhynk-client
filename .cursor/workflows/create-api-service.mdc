@@ -4,413 +4,210 @@
 
 ### 1. File Structure
 - **Location**: `src/store/api/`
-- **Naming**: camelCase with `.apislice.js` suffix
-- **Example**: `auth.apislice.js`, `investment.apislice.js`
-- **Pattern**: Include parsers for response transformation
-- **Export**: Named export for the API slice
+- **Naming**: camelCase domain + `.apislice.js` suffix
+- **Example**: `auth.apislice.js`, `conversations.apislice.js`, `musicRoom.apislice.js`
+- **Pattern**: Use `transformResponse` with a parser from `store/parsers/`
+  when the raw response needs reshaping (see [[create-parser]]) — skip the
+  parser indirection for endpoints whose response is already exactly what
+  components need.
+- **Export**: Named export for the injected API slice, plus the generated
+  hooks.
 
 ### 2. Base API Configuration
+
+`src/store/index.js` and `src/store/api/` currently exist but are empty — no
+`baseApi` has been written yet. This is the shape to create it in:
+
 ```javascript
 // src/store/api/baseApi.js
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
-import { getAuthToken } from 'utils/auth'
 
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.REACT_APP_API_BASE_URL,
+    baseUrl: import.meta.env.VITE_API_URL,
     prepareHeaders: (headers, { getState }) => {
-      const token = getAuthToken()
+      const token = getState().auth.accessToken
       if (token) {
         headers.set('authorization', `Bearer ${token}`)
       }
-      headers.set('content-type', 'application/json')
       return headers
     }
   }),
-  tagTypes: ['User', 'Fund', 'Portfolio', 'Transaction', 'KYC'],
+  tagTypes: ['User', 'Conversation', 'Message', 'MusicRoom', 'Song', 'Playlist', 'Notification'],
   endpoints: () => ({})
 })
 ```
 
-### 3. API Service Template
-```javascript
-// src/store/api/investmentApi.js
-import { baseApi } from './baseApi'
+Note: Vite exposes env vars via `import.meta.env.VITE_*`, not
+`process.env.REACT_APP_*` — this isn't a Create React App project. `axios` is
+installed but unwired; `fetchBaseQuery` (native `fetch`) is the standard RTK
+Query pairing and the default shown here — don't reach for axios in an
+individual `*.apislice.js` file without a documented reason to swap the whole
+`baseQuery`.
 
-export const investmentApi = baseApi.injectEndpoints({
+### 3. API Service Template — Conversations
+```javascript
+// src/store/api/conversations.apislice.js
+import { baseApi } from './baseApi'
+import { parseConversationsResponse } from 'store/parsers/conversations.parsers'
+
+export const conversationsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Get all funds
-    getFunds: builder.query({
-      query: (params = {}) => ({
-        url: '/funds',
-        params: {
-          page: params.page || 1,
-          limit: params.limit || 20,
-          category: params.category,
-          riskLevel: params.riskLevel,
-          search: params.search
-        }
-      }),
-      providesTags: ['Fund']
+    // Get conversation list
+    getConversations: builder.query({
+      query: () => '/conversations',
+      transformResponse: parseConversationsResponse,
+      providesTags: ['Conversation']
     }),
-    
-    // Get fund by ID
-    getFundById: builder.query({
-      query: (id) => `/funds/${id}`,
-      providesTags: (result, error, id) => [{ type: 'Fund', id }]
+
+    // Get a single conversation
+    getConversationById: builder.query({
+      query: (id) => `/conversations/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Conversation', id }]
     }),
-    
-    // Get fund performance
-    getFundPerformance: builder.query({
-      query: ({ id, period = '1Y' }) => `/funds/${id}/performance?period=${period}`,
-      providesTags: (result, error, { id }) => [{ type: 'Fund', id, performance: true }]
-    }),
-    
-    // Get user portfolio
-    getPortfolio: builder.query({
-      query: () => '/portfolio',
-      providesTags: ['Portfolio']
-    }),
-    
-    // Get portfolio performance
-    getPortfolioPerformance: builder.query({
-      query: ({ period = '1Y' } = {}) => `/portfolio/performance?period=${period}`,
-      providesTags: ['Portfolio']
-    }),
-    
-    // Create SIP order
-    createSIPOrder: builder.mutation({
-      query: (orderData) => ({
-        url: '/orders/sip',
+
+    // Create a conversation
+    createConversation: builder.mutation({
+      query: (body) => ({
+        url: '/conversations',
         method: 'POST',
-        body: orderData
+        body
       }),
-      invalidatesTags: ['Portfolio', 'Transaction']
+      invalidatesTags: ['Conversation']
     }),
-    
-    // Create lumpsum order
-    createLumpsumOrder: builder.mutation({
-      query: (orderData) => ({
-        url: '/orders/lumpsum',
-        method: 'POST',
-        body: orderData
+
+    // Get message history — cursor-paginated, per the LLD's compound
+    // { created_at, _id } cursor (see the state-layer rules)
+    getMessages: builder.query({
+      query: ({ conversationId, cursor }) => ({
+        url: `/conversations/${conversationId}/messages`,
+        params: cursor ? { cursor } : undefined
       }),
-      invalidatesTags: ['Portfolio', 'Transaction']
-    }),
-    
-    // Redeem investment
-    redeemInvestment: builder.mutation({
-      query: (redemptionData) => ({
-        url: '/orders/redeem',
-        method: 'POST',
-        body: redemptionData
-      }),
-      invalidatesTags: ['Portfolio', 'Transaction']
-    }),
-    
-    // Update SIP order
-    updateSIPOrder: builder.mutation({
-      query: ({ id, updates }) => ({
-        url: `/orders/sip/${id}`,
-        method: 'PATCH',
-        body: updates
-      }),
-      invalidatesTags: ['Portfolio', 'Transaction']
-    }),
-    
-    // Cancel SIP order
-    cancelSIPOrder: builder.mutation({
-      query: (id) => ({
-        url: `/orders/sip/${id}/cancel`,
-        method: 'POST'
-      }),
-      invalidatesTags: ['Portfolio', 'Transaction']
-    }),
-    
-    // Get transactions
-    getTransactions: builder.query({
-      query: (params = {}) => ({
-        url: '/transactions',
-        params: {
-          page: params.page || 1,
-          limit: params.limit || 20,
-          type: params.type,
-          status: params.status,
-          startDate: params.startDate,
-          endDate: params.endDate
-        }
-      }),
-      providesTags: ['Transaction']
-    }),
-    
-    // Get transaction by ID
-    getTransactionById: builder.query({
-      query: (id) => `/transactions/${id}`,
-      providesTags: (result, error, id) => [{ type: 'Transaction', id }]
+      providesTags: (result, error, { conversationId }) => [
+        { type: 'Message', id: conversationId }
+      ]
     })
   })
 })
 
-// Export hooks
 export const {
-  useGetFundsQuery,
-  useGetFundByIdQuery,
-  useGetFundPerformanceQuery,
-  useGetPortfolioQuery,
-  useGetPortfolioPerformanceQuery,
-  useCreateSIPOrderMutation,
-  useCreateLumpsumOrderMutation,
-  useRedeemInvestmentMutation,
-  useUpdateSIPOrderMutation,
-  useCancelSIPOrderMutation,
-  useGetTransactionsQuery,
-  useGetTransactionByIdQuery
-} = investmentApi
+  useGetConversationsQuery,
+  useGetConversationByIdQuery,
+  useCreateConversationMutation,
+  useGetMessagesQuery
+} = conversationsApi
 ```
 
-### 4. Financial API Examples
+### 4. Rhynk API Examples
 
-#### Authentication API
+#### Auth API — matches the documented 6-endpoint contract
 ```javascript
-// src/store/api/authApi.js
+// src/store/api/auth.apislice.js
 import { baseApi } from './baseApi'
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Login
-    login: builder.mutation({
-      query: (credentials) => ({
-        url: '/auth/login',
-        method: 'POST',
-        body: credentials
-      }),
-      invalidatesTags: ['User']
-    }),
-    
-    // Register
+    // POST /auth/register — { username, email, password }
     register: builder.mutation({
-      query: (userData) => ({
+      query: (body) => ({
         url: '/auth/register',
         method: 'POST',
-        body: userData
+        body
+      })
+    }),
+
+    // POST /auth/verify-otp — { email, otp, deviceId, deviceType }
+    verifyOtp: builder.mutation({
+      query: (body) => ({
+        url: '/auth/verify-otp',
+        method: 'POST',
+        body
       }),
       invalidatesTags: ['User']
     }),
-    
-    // Refresh token
-    refreshToken: builder.mutation({
-      query: (refreshToken) => ({
+
+    // POST /auth/login — { email, password, deviceId, deviceType }
+    login: builder.mutation({
+      query: (body) => ({
+        url: '/auth/login',
+        method: 'POST',
+        body
+      }),
+      invalidatesTags: ['User']
+    }),
+
+    // POST /auth/resend-otp — { email }
+    resendOtp: builder.mutation({
+      query: (body) => ({
+        url: '/auth/resend-otp',
+        method: 'POST',
+        body
+      })
+    }),
+
+    // POST /auth/refresh — { refreshToken, deviceId }
+    // Note: refresh tokens rotate on every call — the client must overwrite
+    // its stored refresh token with the new one, never reuse the old one.
+    // See baseQueryWithReauth in the state-layer rules for where this plugs in.
+    refresh: builder.mutation({
+      query: (body) => ({
         url: '/auth/refresh',
         method: 'POST',
-        body: { refreshToken }
+        body
       })
     }),
-    
-    // Logout
+
+    // POST /auth/logout — { deviceId } + Authorization: Bearer <accessToken>
     logout: builder.mutation({
-      query: () => ({
+      query: (body) => ({
         url: '/auth/logout',
-        method: 'POST'
+        method: 'POST',
+        body
       }),
       invalidatesTags: ['User']
-    }),
-    
-    // Get user profile
-    getUserProfile: builder.query({
-      query: () => '/auth/profile',
-      providesTags: ['User']
-    }),
-    
-    // Update user profile
-    updateUserProfile: builder.mutation({
-      query: (updates) => ({
-        url: '/auth/profile',
-        method: 'PATCH',
-        body: updates
-      }),
-      invalidatesTags: ['User']
-    }),
-    
-    // Change password
-    changePassword: builder.mutation({
-      query: (passwordData) => ({
-        url: '/auth/change-password',
-        method: 'POST',
-        body: passwordData
-      })
-    }),
-    
-    // Forgot password
-    forgotPassword: builder.mutation({
-      query: (email) => ({
-        url: '/auth/forgot-password',
-        method: 'POST',
-        body: { email }
-      })
-    }),
-    
-    // Reset password
-    resetPassword: builder.mutation({
-      query: (resetData) => ({
-        url: '/auth/reset-password',
-        method: 'POST',
-        body: resetData
-      })
     })
   })
 })
 
 export const {
-  useLoginMutation,
   useRegisterMutation,
-  useRefreshTokenMutation,
-  useLogoutMutation,
-  useGetUserProfileQuery,
-  useUpdateUserProfileMutation,
-  useChangePasswordMutation,
-  useForgotPasswordMutation,
-  useResetPasswordMutation
+  useVerifyOtpMutation,
+  useLoginMutation,
+  useResendOtpMutation,
+  useRefreshMutation,
+  useLogoutMutation
 } = authApi
 ```
 
-#### KYC API
+#### Music Room API
 ```javascript
-// src/store/api/kycApi.js
+// src/store/api/musicRoom.apislice.js
 import { baseApi } from './baseApi'
 
-export const kycApi = baseApi.injectEndpoints({
+export const musicRoomApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Get KYC status
-    getKYCStatus: builder.query({
-      query: () => '/kyc/status',
-      providesTags: ['KYC']
+    // GET /conversations/:id/room — current room state + queue
+    getRoomQueue: builder.query({
+      query: (roomId) => `/rooms/${roomId}/queue`,
+      providesTags: (result, error, roomId) => [{ type: 'MusicRoom', id: roomId }]
     }),
-    
-    // Submit KYC data
-    submitKYC: builder.mutation({
-      query: (kycData) => ({
-        url: '/kyc/submit',
+
+    // Queue additions/removals go over this REST endpoint; live playback
+    // control (play/pause/seek/skip) is DJ-only and goes over Socket.IO —
+    // see [[07-realtime-sockets]] and [[08-music-rooms]], not RTK Query.
+    addToQueue: builder.mutation({
+      query: ({ roomId, songId }) => ({
+        url: `/rooms/${roomId}/queue`,
         method: 'POST',
-        body: kycData
+        body: { songId }
       }),
-      invalidatesTags: ['KYC', 'User']
-    }),
-    
-    // Upload KYC documents
-    uploadKYCDocument: builder.mutation({
-      query: ({ type, file }) => {
-        const formData = new FormData()
-        formData.append('type', type)
-        formData.append('file', file)
-        
-        return {
-          url: '/kyc/upload',
-          method: 'POST',
-          body: formData
-        }
-      },
-      invalidatesTags: ['KYC']
-    }),
-    
-    // Get KYC documents
-    getKYCDocuments: builder.query({
-      query: () => '/kyc/documents',
-      providesTags: ['KYC']
-    }),
-    
-    // Update KYC status
-    updateKYCStatus: builder.mutation({
-      query: ({ status, reason }) => ({
-        url: '/kyc/status',
-        method: 'PATCH',
-        body: { status, reason }
-      }),
-      invalidatesTags: ['KYC', 'User']
+      invalidatesTags: (result, error, { roomId }) => [{ type: 'MusicRoom', id: roomId }]
     })
   })
 })
 
-export const {
-  useGetKYCStatusQuery,
-  useSubmitKYCMutation,
-  useUploadKYCDocumentMutation,
-  useGetKYCDocumentsQuery,
-  useUpdateKYCStatusMutation
-} = kycApi
-```
-
-#### Bank Account API
-```javascript
-// src/store/api/bankAccountApi.js
-import { baseApi } from './baseApi'
-
-export const bankAccountApi = baseApi.injectEndpoints({
-  endpoints: (builder) => ({
-    // Get bank accounts
-    getBankAccounts: builder.query({
-      query: () => '/bank-accounts',
-      providesTags: ['BankAccount']
-    }),
-    
-    // Add bank account
-    addBankAccount: builder.mutation({
-      query: (accountData) => ({
-        url: '/bank-accounts',
-        method: 'POST',
-        body: accountData
-      }),
-      invalidatesTags: ['BankAccount']
-    }),
-    
-    // Update bank account
-    updateBankAccount: builder.mutation({
-      query: ({ id, updates }) => ({
-        url: `/bank-accounts/${id}`,
-        method: 'PATCH',
-        body: updates
-      }),
-      invalidatesTags: ['BankAccount']
-    }),
-    
-    // Delete bank account
-    deleteBankAccount: builder.mutation({
-      query: (id) => ({
-        url: `/bank-accounts/${id}`,
-        method: 'DELETE'
-      }),
-      invalidatesTags: ['BankAccount']
-    }),
-    
-    // Set default bank account
-    setDefaultBankAccount: builder.mutation({
-      query: (id) => ({
-        url: `/bank-accounts/${id}/set-default`,
-        method: 'POST'
-      }),
-      invalidatesTags: ['BankAccount']
-    }),
-    
-    // Verify bank account
-    verifyBankAccount: builder.mutation({
-      query: ({ id, verificationData }) => ({
-        url: `/bank-accounts/${id}/verify`,
-        method: 'POST',
-        body: verificationData
-      }),
-      invalidatesTags: ['BankAccount']
-    })
-  })
-})
-
-export const {
-  useGetBankAccountsQuery,
-  useAddBankAccountMutation,
-  useUpdateBankAccountMutation,
-  useDeleteBankAccountMutation,
-  useSetDefaultBankAccountMutation,
-  useVerifyBankAccountMutation
-} = bankAccountApi
+export const { useGetRoomQueueQuery, useAddToQueueMutation } = musicRoomApi
 ```
 
 ### 5. Store Registration
@@ -418,70 +215,83 @@ export const {
 // src/store/index.js
 import { configureStore } from '@reduxjs/toolkit'
 import { baseApi } from './api/baseApi'
-import { investmentApi } from './api/investmentApi'
-import { authApi } from './api/authApi'
-import { kycApi } from './api/kycApi'
-import { bankAccountApi } from './api/bankAccountApi'
-import userReducer from './slices/userSlice'
-import investmentReducer from './slices/investmentSlice'
+import authReducer from './slices/auth.slice'
+import presenceReducer from './slices/presence.slice'
 
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,
-    [investmentApi.reducerPath]: investmentApi.reducer,
-    [authApi.reducerPath]: authApi.reducer,
-    [kycApi.reducerPath]: kycApi.reducer,
-    [bankAccountApi.reducerPath]: bankAccountApi.reducer,
-    user: userReducer,
-    investment: investmentReducer
+    auth: authReducer,
+    presence: presenceReducer
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware()
-      .concat(baseApi.middleware)
-      .concat(investmentApi.middleware)
-      .concat(authApi.middleware)
-      .concat(kycApi.middleware)
-      .concat(bankAccountApi.middleware)
+    getDefaultMiddleware().concat(baseApi.middleware)
 })
 ```
 
-### 6. API Service Requirements Checklist
+Note there is exactly **one** `baseApi` reducer entry, not one per domain —
+every `*.apislice.js` file calls `baseApi.injectEndpoints(...)` on the same
+shared instance rather than creating its own `createApi()` call, so only
+`baseApi.middleware` needs concatenating, not a middleware per feature.
+
+### 6. Verify the base path before hardcoding it
+
+The PRD's API design section uses `/api/v1/...` while the currently
+documented server auth routes are bare `/auth/...` — the two disagree on the
+prefix. Check the live server's actual route registration for a given
+feature before hardcoding either prefix into `VITE_API_URL` or a
+`query: () => '/...'` path; don't assume `/api/v1` applies uniformly just
+because the PRD states it.
+
+### 7. API Service Requirements Checklist
 
 #### ✅ Basic Requirements
-- [ ] Use createApi and injectEndpoints
-- [ ] Configure proper baseQuery with auth headers
-- [ ] Define appropriate tagTypes for cache invalidation
+- [ ] Use `baseApi.injectEndpoints`, not a separate `createApi()` call
+- [ ] Configure proper `baseQuery` with auth headers (already done once, in
+      `baseApi.js`)
+- [ ] Define appropriate `tagTypes` for cache invalidation
 - [ ] Export generated hooks
-- [ ] Register API reducer and middleware in store
+- [ ] Register `baseApi.reducer`/`baseApi.middleware` in the store — once
 
-#### ✅ Financial API Specific
-- [ ] Include proper error handling for financial operations
-- [ ] Add validation for financial data
-- [ ] Include proper cache invalidation strategies
-- [ ] Add optimistic updates where appropriate
-- [ ] Include proper loading states
+#### ✅ Rhynk Specific
+- [ ] Match `docs/AUTH_MODULE.md`'s exact request/response shapes for auth
+      endpoints — don't invent a different auth flow
+- [ ] Keep Socket.IO event handling (typing, presence, room sync, calls) out
+      of `store/api/` — RTK Query is REST-only, sockets live in containers or
+      a future `src/app/socket.js` (see [[07-realtime-sockets]])
+- [ ] Pass through the server's compound message cursor
+      (`{ created_at, _id }`) unmodified rather than reconstructing it
+      client-side
+- [ ] Add a `baseQueryWithReauth` wrapper (see the state-layer rules) around
+      401 handling instead of handling refresh ad hoc per component
 
 #### ✅ Security
 - [ ] Include authentication headers
-- [ ] Add proper error handling for auth failures
+- [ ] Add proper error handling for auth failures (`SESSION_REVOKED` must
+      force a full logout, not a silent retry)
 - [ ] Include token refresh logic
-- [ ] Add proper validation for sensitive data
+- [ ] Never log tokens or OTPs
 
-### 7. Testing Template
+### 8. Testing
+
+No test runner (Vitest/Jest) is configured in this repo yet — the template
+below is the intended shape once one is added, not something that runs today.
+
 ```javascript
-// src/store/api/__tests__/investmentApi.test.js
+// src/store/api/__tests__/conversations.apislice.test.js
 import { renderHook, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { investmentApi } from '../investmentApi'
+import { conversationsApi } from '../conversations.apislice'
+import { baseApi } from '../baseApi'
 
 const createTestStore = () => {
   return configureStore({
     reducer: {
-      [investmentApi.reducerPath]: investmentApi.reducer
+      [baseApi.reducerPath]: baseApi.reducer
     },
     middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat(investmentApi.middleware)
+      getDefaultMiddleware().concat(baseApi.middleware)
   })
 }
 
@@ -490,9 +300,12 @@ const wrapper = ({ children }) => {
   return <Provider store={store}>{children}</Provider>
 }
 
-describe('investmentApi', () => {
-  it('should fetch funds', async () => {
-    const { result } = renderHook(() => investmentApi.useGetFundsQuery(), { wrapper })
+describe('conversationsApi', () => {
+  it('should fetch conversations', async () => {
+    const { result } = renderHook(
+      () => conversationsApi.useGetConversationsQuery(),
+      { wrapper }
+    )
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
@@ -500,45 +313,29 @@ describe('investmentApi', () => {
 
     expect(result.current.data).toBeDefined()
   })
-
-  it('should create SIP order', async () => {
-    const { result } = renderHook(() => investmentApi.useCreateSIPOrderMutation(), { wrapper })
-
-    const [createSIPOrder] = result.current
-
-    await waitFor(async () => {
-      const response = await createSIPOrder({
-        fundId: '1',
-        amount: 1000,
-        frequency: 'monthly'
-      })
-      
-      expect(response.data).toBeDefined()
-    })
-  })
 })
 ```
 
-### 8. Common API Patterns
+### 9. Common API Patterns
 
 #### Query Endpoints
-- `getFunds` - Fetch fund list with filters
-- `getFundById` - Fetch specific fund details
-- `getPortfolio` - Fetch user portfolio
-- `getTransactions` - Fetch transaction history
+- `getConversations` - Fetch conversation list
+- `getMessages` - Cursor-paginated message history
+- `getRoomQueue` - Music-room queue/state
+- `getNotifications` - Notification list
 
 #### Mutation Endpoints
-- `createSIPOrder` - Create SIP investment
-- `createLumpsumOrder` - Create lumpsum investment
-- `redeemInvestment` - Redeem investment
-- `updateProfile` - Update user profile
+- `createConversation` - Start a new conversation
+- `addToQueue` - Add a track to a room's queue
+- `login` / `register` / `verifyOtp` / `refresh` / `logout` - Auth flow
 
 #### Cache Invalidation
 - Use `providesTags` for data that should be cached
 - Use `invalidatesTags` for mutations that affect cached data
-- Use specific tags for granular cache control
+- Use specific `{ type, id }` tags for granular cache control
 
 #### Error Handling
-- Include proper error handling in baseQuery
-- Add retry logic for failed requests
-- Include proper error messages for user feedback
+- Include proper error handling in `baseQuery`
+- Map server error codes (`EMAIL_TAKEN`, `OTP_INVALID`, `REFRESH_LOCKED`,
+  `SESSION_REVOKED`, …) to user-facing messages rather than surfacing raw
+  HTTP status text

@@ -2,8 +2,10 @@
 
 ## Where it goes
 
-`src/features/<name>/hooks/` for feature-scoped hooks (per
-[[01-architecture]]).
+`src/hooks/` — this repo doesn't nest a `hooks/` folder inside each feature;
+all hooks (cross-cutting and feature-scoped alike) live flat in
+`src/hooks/`, disambiguated by name (per [[01-architecture]],
+[[02-naming]]).
 
 ## Naming
 
@@ -24,7 +26,7 @@ Query already gives you.
 ## Template — composing an RTK Query hook
 
 ```javascript
-// src/features/conversations/hooks/useConversations.js
+// src/hooks/useConversations.js
 import { useGetConversationsQuery } from 'store/api/conversations.apislice'
 
 const useConversations = () => {
@@ -42,7 +44,7 @@ rename the return values.
 ## Template — composing slice state + dispatch
 
 ```javascript
-// src/features/auth/hooks/useAuthSession.js
+// src/hooks/useAuthSession.js
 import { useSelector, useDispatch } from 'react-redux'
 import { setSession, clearSession, selectUser, selectIsAuthenticated } from 'store/slices/auth.slice'
 
@@ -72,5 +74,5 @@ export default useAuthSession
       return function — relevant for anything touching Socket.IO (see
       [[07-realtime-sockets]]); RTK Query subscriptions clean themselves up
       automatically and don't need this.
-- [ ] Doesn't reach across features — a hook in `features/messages/hooks/`
-      shouldn't import from `features/music-room/`.
+- [ ] Doesn't reach across domains — a messages hook shouldn't import from
+      the music-rooms container, and vice versa.
