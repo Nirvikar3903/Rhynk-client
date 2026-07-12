@@ -1,0 +1,402 @@
+# Create MUI Wrapper Component Workflow
+
+## MUI Wrapper Component Creation Checklist
+
+### 1. File Structure
+- **Location**: `src/components/mui/ComponentNameComponent.jsx`
+- **Naming**: PascalCase with `Component` suffix
+- **Pattern**: Wrap every MUI component used in the app
+
+### 2. MUI Wrapper Template
+```javascript
+// src/components/mui/AppButtonComponent.jsx
+import React, { memo } from 'react'
+import { Button as MuiButton } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppButtonComponent = ({ 
+  variant = 'contained',
+  color = 'primary',
+  size = 'medium',
+  loading = false,
+  disabled = false,
+  children,
+  onClick,
+  sx = {},
+  ...props 
+}) => {
+  return (
+    <MuiButton
+      variant={variant}
+      color={color}
+      size={size}
+      disabled={disabled || loading}
+      onClick={onClick}
+      sx={{
+        textTransform: 'none', // Disable uppercase transformation
+        borderRadius: 2,
+        fontWeight: 500,
+        ...sx
+      }}
+      {...props}
+    >
+      {loading ? 'Loading...' : children}
+    </MuiButton>
+  )
+}
+
+AppButtonComponent.propTypes = {
+  variant: PropTypes.oneOf(['contained', 'outlined', 'text']),
+  color: PropTypes.oneOf(['primary', 'secondary', 'error', 'warning', 'info', 'success']),
+  size: PropTypes.oneOf(['small', 'medium', 'large']),
+  loading: PropTypes.bool,
+  disabled: PropTypes.bool,
+  children: PropTypes.node.isRequired,
+  onClick: PropTypes.func,
+  sx: PropTypes.object
+}
+
+AppButtonComponent.defaultProps = {
+  variant: 'contained',
+  color: 'primary',
+  size: 'medium',
+  loading: false,
+  disabled: false,
+  sx: {}
+}
+
+export default memo(AppButtonComponent)
+```
+
+### 3. Financial App MUI Wrappers
+
+#### AppTextFieldComponent
+```javascript
+// src/components/mui/AppTextFieldComponent.jsx
+import React, { memo } from 'react'
+import { TextField as MuiTextField } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppTextFieldComponent = ({
+  label,
+  value,
+  onChange,
+  error,
+  helperText,
+  required = false,
+  type = 'text',
+  placeholder,
+  disabled = false,
+  sx = {},
+  ...props
+}) => {
+  return (
+    <MuiTextField
+      label={label}
+      value={value}
+      onChange={onChange}
+      error={!!error}
+      helperText={error || helperText}
+      required={required}
+      type={type}
+      placeholder={placeholder}
+      disabled={disabled}
+      variant="outlined"
+      fullWidth
+      margin="normal"
+      sx={{
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 2
+        },
+        ...sx
+      }}
+      {...props}
+    />
+  )
+}
+
+AppTextFieldComponent.propTypes = {
+  label: PropTypes.string,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string,
+  helperText: PropTypes.string,
+  required: PropTypes.bool,
+  type: PropTypes.string,
+  placeholder: PropTypes.string,
+  disabled: PropTypes.bool,
+  sx: PropTypes.object
+}
+
+AppTextFieldComponent.defaultProps = {
+  required: false,
+  type: 'text',
+  disabled: false,
+  sx: {}
+}
+
+export default memo(AppTextFieldComponent)
+```
+
+#### AppCardComponent
+```javascript
+// src/components/mui/AppCardComponent.jsx
+import React, { memo } from 'react'
+import { Card as MuiCard, CardContent as MuiCardContent } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppCardComponent = ({ 
+  children, 
+  elevation = 1,
+  sx = {},
+  ...props 
+}) => {
+  return (
+    <MuiCard
+      elevation={elevation}
+      sx={{
+        borderRadius: 2,
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          elevation: 2,
+          transform: 'translateY(-2px)'
+        },
+        ...sx
+      }}
+      {...props}
+    >
+      <MuiCardContent>
+        {children}
+      </MuiCardContent>
+    </MuiCard>
+  )
+}
+
+AppCardComponent.propTypes = {
+  children: PropTypes.node.isRequired,
+  elevation: PropTypes.number,
+  sx: PropTypes.object
+}
+
+AppCardComponent.defaultProps = {
+  elevation: 1,
+  sx: {}
+}
+
+export default memo(AppCardComponent)
+```
+
+#### AppModalComponent
+```javascript
+// src/components/mui/AppModalComponent.jsx
+import React, { memo } from 'react'
+import { 
+  Dialog as MuiDialog, 
+  DialogTitle as MuiDialogTitle,
+  DialogContent as MuiDialogContent,
+  DialogActions as MuiDialogActions,
+  IconButton
+} from '@mui/material'
+import { Close as CloseIcon } from '@mui/icons-material'
+import PropTypes from 'prop-types'
+
+const AppModalComponent = ({ 
+  open,
+  onClose,
+  title,
+  children,
+  actions,
+  maxWidth = 'sm',
+  fullWidth = true,
+  sx = {},
+  ...props 
+}) => {
+  return (
+    <MuiDialog
+      open={open}
+      onClose={onClose}
+      maxWidth={maxWidth}
+      fullWidth={fullWidth}
+      sx={{
+        '& .MuiDialog-paper': {
+          borderRadius: 2
+        },
+        ...sx
+      }}
+      {...props}
+    >
+      {title && (
+        <MuiDialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 1
+          }}
+        >
+          {title}
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ ml: 2 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </MuiDialogTitle>
+      )}
+      
+      <MuiDialogContent>
+        {children}
+      </MuiDialogContent>
+      
+      {actions && (
+        <MuiDialogActions>
+          {actions}
+        </MuiDialogActions>
+      )}
+    </MuiDialog>
+  )
+}
+
+AppModalComponent.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  title: PropTypes.string,
+  children: PropTypes.node.isRequired,
+  actions: PropTypes.node,
+  maxWidth: PropTypes.oneOf(['xs', 'sm', 'md', 'lg', 'xl']),
+  fullWidth: PropTypes.bool,
+  sx: PropTypes.object
+}
+
+AppModalComponent.defaultProps = {
+  maxWidth: 'sm',
+  fullWidth: true,
+  sx: {}
+}
+
+export default memo(AppModalComponent)
+```
+
+### 4. MUI Wrapper Requirements Checklist
+
+#### ✅ Basic Requirements
+- [ ] Create wrapper for every MUI component used
+- [ ] Use PropTypes for all prop validation (NO TypeScript)
+- [ ] Apply consistent styling with SX prop
+- [ ] Include proper default props
+- [ ] Use React.memo for performance
+- [ ] Follow JSX file structure order
+
+#### ✅ MUI Integration
+- [ ] Wrap MUI component with custom props
+- [ ] Apply consistent theme integration
+- [ ] Add hover and focus states
+- [ ] Ensure accessibility compliance
+- [ ] Use MUI's responsive breakpoint system
+
+#### ✅ Financial App Specific
+- [ ] Include financial data formatting utilities
+- [ ] Add proper error handling and display
+- [ ] Include loading states where needed
+- [ ] Consider mobile responsiveness
+- [ ] Add proper data validation
+
+### 5. Common MUI Wrappers to Create
+
+#### Form Components
+- `AppTextFieldComponent` - Enhanced MUI TextField
+- `AppSelectComponent` - Enhanced MUI Select
+- `AppCheckboxComponent` - Enhanced MUI Checkbox
+- `AppRadioGroupComponent` - Enhanced MUI RadioGroup
+- `AppDatePickerComponent` - Enhanced MUI DatePicker
+
+#### Display Components
+- `AppCardComponent` - Standardized card component
+- `AppModalComponent` - Standardized modal component
+- `AppDialogComponent` - Standardized dialog component
+- `AppTooltipComponent` - Standardized tooltip component
+- `AppAlertComponent` - Enhanced MUI Alert
+
+#### Navigation Components
+- `AppAppBarComponent` - Enhanced MUI AppBar
+- `AppDrawerComponent` - Enhanced MUI Drawer
+- `AppTabsComponent` - Enhanced MUI Tabs
+- `AppBreadcrumbsComponent` - Enhanced MUI Breadcrumbs
+
+#### Data Display Components
+- `AppTableComponent` - Enhanced MUI Table
+- `AppPaginationComponent` - Enhanced MUI Pagination
+- `AppChipComponent` - Enhanced MUI Chip
+- `AppBadgeComponent` - Enhanced MUI Badge
+
+### 6. Export Pattern
+```javascript
+// src/components/mui/index.js
+export { default as AppButtonComponent } from './AppButtonComponent'
+export { default as AppTextFieldComponent } from './AppTextFieldComponent'
+export { default as AppCardComponent } from './AppCardComponent'
+export { default as AppModalComponent } from './AppModalComponent'
+export { default as AppSelectComponent } from './AppSelectComponent'
+export { default as AppCheckboxComponent } from './AppCheckboxComponent'
+export { default as AppRadioGroupComponent } from './AppRadioGroupComponent'
+export { default as AppDatePickerComponent } from './AppDatePickerComponent'
+export { default as AppAlertComponent } from './AppAlertComponent'
+export { default as AppTableComponent } from './AppTableComponent'
+export { default as AppPaginationComponent } from './AppPaginationComponent'
+export { default as AppChipComponent } from './AppChipComponent'
+export { default as AppBadgeComponent } from './AppBadgeComponent'
+
+// Usage
+import { 
+  AppButtonComponent, 
+  AppTextFieldComponent, 
+  AppCardComponent 
+} from 'components/mui'
+```
+
+### 7. Testing Template
+```javascript
+// src/components/mui/__tests__/AppButtonComponent.test.jsx
+import React from 'react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import AppButtonComponent from '../AppButtonComponent'
+
+describe('AppButtonComponent', () => {
+  it('renders without crashing', () => {
+    render(<AppButtonComponent>Click me</AppButtonComponent>)
+    expect(screen.getByRole('button')).toBeInTheDocument()
+  })
+
+  it('handles click events', async () => {
+    const user = userEvent.setup()
+    const handleClick = jest.fn()
+    
+    render(
+      <AppButtonComponent onClick={handleClick}>
+        Click me
+      </AppButtonComponent>
+    )
+    
+    await user.click(screen.getByRole('button'))
+    expect(handleClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows loading state', () => {
+    render(<AppButtonComponent loading>Click me</AppButtonComponent>)
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+  })
+
+  it('applies custom sx styles', () => {
+    render(
+      <AppButtonComponent sx={{ color: 'red' }}>
+        Click me
+      </AppButtonComponent>
+    )
+    
+    const button = screen.getByRole('button')
+    expect(button).toHaveStyle('color: red')
+  })
+})
+```

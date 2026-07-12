@@ -1,0 +1,447 @@
+# Setup Encryption Workflow
+
+## Encryption Setup Checklist
+
+### 1. Environment Configuration
+- **Development**: Encryption disabled for easier debugging
+- **Production**: Encryption enabled for security
+- **Environment Variable**: `REACT_APP_ENABLE_ENCRYPTION=true/false`
+
+### 2. Encryption Service Setup
+```javascript
+// src/utils/encryption.utils.js
+import CryptoJS from 'crypto-js'
+
+const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY || 'default-dev-key'
+const ENABLE_ENCRYPTION = process.env.REACT_APP_ENABLE_ENCRYPTION === 'true'
+
+// Encrypt data
+export const encrypt = (data, key = ENCRYPTION_KEY) => {
+  if (!ENABLE_ENCRYPTION) {
+    return data // Return unencrypted in development
+  }
+
+  try {
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), key).toString()
+    return encrypted
+  } catch (error) {
+    console.error('Encryption failed:', error)
+    return data
+  }
+}
+
+// Decrypt data
+export const decrypt = (encryptedData, key = ENCRYPTION_KEY) => {
+  if (!ENABLE_ENCRYPTION) {
+    return encryptedData // Return as-is in development
+  }
+
+  try {
+    const bytes = CryptoJS.AES.decrypt(encryptedData, key)
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8)
+    return JSON.parse(decrypted)
+  } catch (error) {
+    console.error('Decryption failed:', error)
+    return encryptedData
+  }
+}
+
+// Encrypt string
+export const encryptString = (text, key = ENCRYPTION_KEY) => {
+  if (!ENABLE_ENCRYPTION) {
+    return text
+  }
+
+  try {
+    return CryptoJS.AES.encrypt(text, key).toString()
+  } catch (error) {
+    console.error('String encryption failed:', error)
+    return text
+  }
+}
+
+// Decrypt string
+export const decryptString = (encryptedText, key = ENCRYPTION_KEY) => {
+  if (!ENABLE_ENCRYPTION) {
+    return encryptedText
+  }
+
+  try {
+    const bytes = CryptoJS.AES.decrypt(encryptedText, key)
+    return bytes.toString(CryptoJS.enc.Utf8)
+  } catch (error) {
+    console.error('String decryption failed:', error)
+    return encryptedText
+  }
+}
+```
+
+### 3. Secure Storage Service
+```javascript
+// src/utils/secureStorage.utils.js
+import { encrypt, decrypt } from './encryption.utils'
+
+const STORAGE_PREFIX = 'secure_'
+
+// Set encrypted item in localStorage
+export const setSecureItem = (key, value) => {
+  try {
+    const encryptedValue = encrypt(value)
+    localStorage.setItem(`${STORAGE_PREFIX}${key}`, encryptedValue)
+    return true
+  } catch (error) {
+    console.error('Failed to set secure item:', error)
+    return false
+  }
+}
+
+// Get and decrypt item from localStorage
+export const getSecureItem = (key) => {
+  try {
+    const encryptedValue = localStorage.getItem(`${STORAGE_PREFIX}${key}`)
+    if (!encryptedValue) return null
+    
+    return decrypt(encryptedValue)
+  } catch (error) {
+    console.error('Failed to get secure item:', error)
+    return null
+  }
+}
+
+// Remove secure item
+export const removeSecureItem = (key) => {
+  try {
+    localStorage.removeItem(`${STORAGE_PREFIX}${key}`)
+    return true
+  } catch (error) {
+    console.error('Failed to remove secure item:', error)
+    return false
+  }
+}
+
+// Clear all secure items
+export const clearSecureStorage = () => {
+  try {
+    const keys = Object.keys(localStorage)
+    keys.forEach(key => {
+      if (key.startsWith(STORAGE_PREFIX)) {
+        localStorage.removeItem(key)
+      }
+    })
+    return true
+  } catch (error) {
+    console.error('Failed to clear secure storage:', error)
+    return false
+  }
+}
+```
+
+### 4. API Request/Response Encryption
+```javascript
+// src/utils/apiEncryption.utils.js
+import { encrypt, decrypt } from './encryption.utils'
+
+// Encrypt API request data
+export const encryptApiRequest = (data) => {
+  const sensitiveFields = ['password', 'ssn', 'aadhaarNumber', 'panNumber', 'bankDetails']
+  
+  if (!data || typeof data !== 'object') {
+    return data
+  }
+
+  const encryptedData = { ...data }
+  
+  sensitiveFields.forEach(field => {
+    if (encryptedData[field]) {
+      encryptedData[field] = encrypt(encryptedData[field])
+    }
+  })
+
+  return encryptedData
+}
+
+// Decrypt API response data
+export const decryptApiResponse = (data) => {
+  const sensitiveFields = ['ssn', 'aadhaarNumber', 'panNumber', 'bankDetails']
+  
+  if (!data || typeof data !== 'object') {
+    return data
+  }
+
+  const decryptedData = { ...data }
+  
+  sensitiveFields.forEach(field => {
+    if (decryptedData[field]) {
+      decryptedData[field] = decrypt(decryptedData[field])
+    }
+  })
+
+  return decryptedData
+}
+
+// Encrypt specific field
+export const encryptField = (fieldName, value) => {
+  const sensitiveFields = ['password', 'ssn', 'aadhaarNumber', 'panNumber', 'bankDetails']
+  
+  if (sensitiveFields.includes(fieldName)) {
+    return encrypt(value)
+  }
+  
+  return value
+}
+
+// Decrypt specific field
+export const decryptField = (fieldName, value) => {
+  const sensitiveFields = ['ssn', 'aadhaarNumber', 'panNumber', 'bankDetails']
+  
+  if (sensitiveFields.includes(fieldName)) {
+    return decrypt(value)
+  }
+  
+  return value
+}
+```
+
+### 5. Redux Persist with Encryption
+```javascript
+// src/store/slices/user.slice.js
+import { createSlice } from '@reduxjs/toolkit'
+import { persistReducer } from 'redux-persist'
+import storage from 'redux-persist/lib/storage'
+import { encrypt, decrypt } from 'utils/encryption.utils'
+
+// Create transform for encryption
+const encryptTransform = {
+  in: (inboundState, key) => {
+    if (key === 'user' && inboundState.profile) {
+      return {
+        ...inboundState,
+        profile: {
+          ...inboundState.profile,
+          // Encrypt sensitive fields
+          ssn: encrypt(inboundState.profile.ssn),
+          aadhaarNumber: encrypt(inboundState.profile.aadhaarNumber),
+          panNumber: encrypt(inboundState.profile.panNumber),
+          bankDetails: inboundState.profile.bankDetails ? 
+            encrypt(inboundState.profile.bankDetails) : null
+        }
+      }
+    }
+    return inboundState
+  },
+  out: (outboundState, key) => {
+    if (key === 'user' && outboundState.profile) {
+      return {
+        ...outboundState,
+        profile: {
+          ...outboundState.profile,
+          // Decrypt sensitive fields
+          ssn: decrypt(outboundState.profile.ssn),
+          aadhaarNumber: decrypt(outboundState.profile.aadhaarNumber),
+          panNumber: decrypt(outboundState.profile.panNumber),
+          bankDetails: outboundState.profile.bankDetails ? 
+            decrypt(outboundState.profile.bankDetails) : null
+        }
+      }
+    }
+    return outboundState
+  }
+}
+
+const userPersistConfig = {
+  key: 'user',
+  storage,
+  whitelist: ['profile', 'preferences'],
+  transforms: [encryptTransform]
+}
+
+const userSlice = createSlice({
+  name: 'user',
+  initialState: {
+    profile: null,
+    preferences: {},
+    loading: false,
+    error: null
+  },
+  reducers: {
+    setUser: (state, action) => {
+      state.profile = action.payload
+    },
+    updateProfile: (state, action) => {
+      state.profile = { ...state.profile, ...action.payload }
+    }
+  }
+})
+
+export default persistReducer(userPersistConfig, userSlice.reducer)
+```
+
+### 6. Form Data Encryption
+```javascript
+// src/utils/formEncryption.utils.js
+import { encrypt, decrypt } from './encryption.utils'
+
+// Encrypt form data before submission
+export const encryptFormData = (formData) => {
+  const sensitiveFields = [
+    'password',
+    'confirmPassword',
+    'ssn',
+    'aadhaarNumber',
+    'panNumber',
+    'bankAccountNumber',
+    'ifscCode'
+  ]
+
+  const encryptedData = { ...formData }
+
+  sensitiveFields.forEach(field => {
+    if (encryptedData[field]) {
+      encryptedData[field] = encrypt(encryptedData[field])
+    }
+  })
+
+  return encryptedData
+}
+
+// Decrypt form data after retrieval
+export const decryptFormData = (formData) => {
+  const sensitiveFields = [
+    'ssn',
+    'aadhaarNumber',
+    'panNumber',
+    'bankAccountNumber',
+    'ifscCode'
+  ]
+
+  const decryptedData = { ...formData }
+
+  sensitiveFields.forEach(field => {
+    if (decryptedData[field]) {
+      decryptedData[field] = decrypt(decryptedData[field])
+    }
+  })
+
+  return decryptedData
+}
+```
+
+### 7. Environment Variables Setup
+```bash
+# .env.development
+REACT_APP_ENABLE_ENCRYPTION=false
+REACT_APP_ENCRYPTION_KEY=dev-key-not-secure
+
+# .env.production
+REACT_APP_ENABLE_ENCRYPTION=true
+REACT_APP_ENCRYPTION_KEY=your-secure-production-key
+
+# .env.example
+REACT_APP_ENABLE_ENCRYPTION=true/false
+REACT_APP_ENCRYPTION_KEY=your-encryption-key
+```
+
+### 8. Usage Examples
+
+#### In API Calls
+```javascript
+// src/store/api/auth.apislice.js
+import { encryptApiRequest, decryptApiResponse } from 'utils/apiEncryption.utils'
+
+export const authApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    login: builder.mutation({
+      query: (credentials) => ({
+        url: '/auth/login',
+        method: 'POST',
+        body: encryptApiRequest(credentials)
+      }),
+      transformResponse: decryptApiResponse
+    })
+  })
+})
+```
+
+#### In Forms
+```javascript
+// src/components/forms/KYCFormComponent.jsx
+import { encryptFormData } from 'utils/formEncryption.utils'
+
+const KYCFormComponent = ({ onSubmit }) => {
+  const handleSubmit = (formData) => {
+    const encryptedData = encryptFormData(formData)
+    onSubmit(encryptedData)
+  }
+
+  // ... rest of component
+}
+```
+
+#### In Local Storage
+```javascript
+// src/hooks/useAuth.hook.js
+import { setSecureItem, getSecureItem, removeSecureItem } from 'utils/secureStorage.utils'
+
+const useAuth = () => {
+  const setTokens = (tokens) => {
+    setSecureItem('auth_tokens', tokens)
+  }
+
+  const getTokens = () => {
+    return getSecureItem('auth_tokens')
+  }
+
+  const clearTokens = () => {
+    removeSecureItem('auth_tokens')
+  }
+
+  // ... rest of hook
+}
+```
+
+### 9. Testing Encryption
+```javascript
+// src/utils/__tests__/encryption.utils.test.js
+import { encrypt, decrypt, encryptString, decryptString } from '../encryption.utils'
+
+describe('encryption.utils', () => {
+  beforeEach(() => {
+    // Mock environment variable
+    process.env.REACT_APP_ENABLE_ENCRYPTION = 'true'
+  })
+
+  it('encrypts and decrypts data correctly', () => {
+    const testData = { name: 'John', ssn: '123-45-6789' }
+    
+    const encrypted = encrypt(testData)
+    const decrypted = decrypt(encrypted)
+    
+    expect(decrypted).toEqual(testData)
+  })
+
+  it('encrypts and decrypts strings correctly', () => {
+    const testString = 'sensitive-data'
+    
+    const encrypted = encryptString(testString)
+    const decrypted = decryptString(encrypted)
+    
+    expect(decrypted).toBe(testString)
+  })
+
+  it('handles encryption errors gracefully', () => {
+    const invalidData = undefined
+    
+    const encrypted = encrypt(invalidData)
+    expect(encrypted).toBe(invalidData)
+  })
+})
+```
+
+### 10. Security Best Practices
+- [ ] Use strong encryption keys in production
+- [ ] Rotate encryption keys regularly
+- [ ] Never log encrypted data
+- [ ] Handle encryption errors gracefully
+- [ ] Test encryption/decryption thoroughly
+- [ ] Use different keys for different data types
+- [ ] Implement key management strategy

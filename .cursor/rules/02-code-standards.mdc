@@ -1,0 +1,646 @@
+---
+alwaysApply: true
+---
+# Code Standards & Component Development
+
+## File Naming Conventions
+
+### JSX Files
+- **PascalCase** for all JSX files
+- **Pattern**: `LoginPage.jsx` → `LoginContainer.jsx` → `LoginFormComponent.jsx`
+
+```javascript
+// ✅ Correct - Page → Container → Component pattern
+LoginPage.jsx
+LoginContainer.jsx
+LoginFormComponent.jsx
+FundCardComponent.jsx
+AppButtonComponent.jsx
+
+// ❌ Avoid
+loginPage.jsx
+login_container.jsx
+login-form.jsx
+```
+
+### Utility Files
+- **kebab-case** with descriptive suffixes
+- **Suffixes**: `.utils.js`, `.hook.js`, `.slice.js`, `.apislice.js`
+
+```javascript
+// ✅ Correct
+date.utils.js
+currency.utils.js
+useAuth.hook.js
+investment.slice.js
+auth.apislice.js
+
+// ❌ Avoid
+dateUtils.js
+currency_utils.js
+useAuth.js
+investmentSlice.js
+```
+
+### MUI Wrapper Files
+- **PascalCase** with `Component` suffix
+- **Location**: `src/components/mui/`
+
+```javascript
+// ✅ Correct
+AppButtonComponent.jsx
+AppTextFieldComponent.jsx
+AppCardComponent.jsx
+
+// ❌ Avoid
+Button.jsx
+TextField.jsx
+Card.jsx
+```
+
+## JSX File Structure Order
+
+### Required Order for All JSX Files
+1. **Import statements** - All imports at the top
+2. **Component scope** - Constants, static data, configuration
+3. **States, refs, selectors, RTK Query hooks** - All hooks and state
+4. **useEffect hooks** - All side effects
+5. **Other functions and logic** - Event handlers, utility functions
+6. **Return/rendering** - JSX return statement
+
+```javascript
+// ✅ Correct JSX structure
+import React, { useState, useEffect, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useGetFundsQuery } from 'store/api/investment.apislice'
+import { AppButtonComponent } from 'components/mui/AppButtonComponent'
+import { formatCurrency } from 'utils/currency.utils'
+
+// 2. Component scope
+const FUND_CATEGORIES = ['Equity', 'Debt', 'Hybrid']
+const DEFAULT_PAGE_SIZE = 20
+
+const FundListContainer = ({ onFundSelect }) => {
+  // 3. States, refs, selectors, RTK Query hooks
+  const [selectedFund, setSelectedFund] = useState(null)
+  const [page, setPage] = useState(1)
+  const dispatch = useDispatch()
+  const { data: funds, isLoading, error } = useGetFundsQuery({ page })
+  const user = useSelector(state => state.user.profile)
+  
+  // 4. useEffect hooks
+  useEffect(() => {
+    // Side effects
+  }, [])
+  
+  // 5. Other functions and logic
+  const handleFundClick = (fund) => {
+    setSelectedFund(fund)
+    onFundSelect?.(fund)
+  }
+  
+  // 6. Return/rendering
+  return (
+    <div>
+      {/* JSX content */}
+    </div>
+  )
+}
+
+export default FundListContainer
+```
+
+## Component Development
+
+### Functional Components Only
+- Use React functional components exclusively
+- Use hooks only (useState, useEffect, etc.)
+- No class components
+- **NO TypeScript** - Use PropTypes for type checking
+
+### Component Size Limit
+- **Maximum 300 lines** per component
+- Split large components into smaller, focused components
+- Extract complex logic into custom hooks
+
+### Props Handling
+```javascript
+// ✅ Correct - Destructure props
+const FundCard = ({ fund, onSelect, isSelected = false }) => {
+  // component logic
+}
+
+// ✅ Correct - Provide default values
+const FundCard = ({ 
+  fund, 
+  onSelect, 
+  isSelected = false,
+  showDetails = true 
+}) => {
+  // component logic
+}
+
+// ❌ Avoid - Direct props access
+const FundCard = (props) => {
+  return <div>{props.fund.name}</div>
+}
+
+// ❌ Avoid - Mutating props
+const FundCard = ({ fund }) => {
+  fund.isSelected = true // Never mutate props directly
+}
+```
+
+### PropTypes or Interfaces
+```javascript
+// ✅ Correct - PropTypes
+import PropTypes from 'prop-types'
+
+const FundCard = ({ fund, onSelect, isSelected }) => {
+  // component logic
+}
+
+FundCard.propTypes = {
+  fund: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    nav: PropTypes.number.isRequired,
+    category: PropTypes.string
+  }).isRequired,
+  onSelect: PropTypes.func.isRequired,
+  isSelected: PropTypes.bool
+}
+
+// ✅ Correct - Default props
+FundCard.defaultProps = {
+  isSelected: false
+}
+```
+
+## Reusable MUI Components
+
+### Create Custom MUI Wrappers
+Create **reusable MUI components** under `src/components/common/`:
+
+```javascript
+// src/components/common/AppButton.jsx
+import React from 'react'
+import { Button as MuiButton } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppButton = ({ 
+  variant = 'contained', 
+  color = 'primary',
+  size = 'medium',
+  loading = false,
+  disabled = false,
+  children,
+  ...props 
+}) => {
+  return (
+    <MuiButton
+      variant={variant}
+      color={color}
+      size={size}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading ? 'Loading...' : children}
+    </MuiButton>
+  )
+}
+
+AppButton.propTypes = {
+  variant: PropTypes.oneOf(['contained', 'outlined', 'text']),
+  color: PropTypes.oneOf(['primary', 'secondary', 'error', 'warning', 'info', 'success']),
+  size: PropTypes.oneOf(['small', 'medium', 'large']),
+  loading: PropTypes.bool,
+  disabled: PropTypes.bool,
+  children: PropTypes.node.isRequired
+}
+
+export default AppButton
+```
+
+### Component Examples
+- `CustomButton` - Enhanced MUI Button with loading states
+- `AppModal` - Standardized modal with consistent styling
+- `FormInput` - Form input with validation display
+- `DataTable` - Reusable table component
+- `LoadingSpinner` - Consistent loading indicator
+
+## Code Quality Standards
+
+### Destructuring
+```javascript
+// ✅ Correct - Destructure at function level
+const FundList = ({ funds, onFundSelect, loading }) => {
+  const [selectedFund, setSelectedFund] = useState(null)
+  
+  // component logic
+}
+
+// ✅ Correct - Destructure in useEffect
+useEffect(() => {
+  const { id, name, nav } = fund
+  // use destructured values
+}, [fund])
+```
+
+### State Management
+```javascript
+// ✅ Correct - Use functional updates
+const [count, setCount] = useState(0)
+setCount(prevCount => prevCount + 1)
+
+// ✅ Correct - Multiple state updates
+const [formData, setFormData] = useState({
+  amount: '',
+  duration: '',
+  riskProfile: 'moderate'
+})
+
+setFormData(prev => ({
+  ...prev,
+  amount: '10000'
+}))
+```
+
+### Event Handlers
+```javascript
+// ✅ Correct - Named functions for complex logic
+const handleFundSelect = (fund) => {
+  setSelectedFund(fund)
+  onFundSelect?.(fund)
+  // Additional logic
+}
+
+// ✅ Correct - Inline for simple handlers
+<Button onClick={() => setShowDetails(!showDetails)}>
+  Toggle Details
+</Button>
+```
+
+## Financial App Specific Patterns
+
+### Currency Handling
+```javascript
+// ✅ Correct - Use utility functions
+import { formatCurrency, parseCurrency } from 'utils/currency'
+
+const InvestmentForm = () => {
+  const [amount, setAmount] = useState('')
+  
+  const handleAmountChange = (value) => {
+    const formatted = formatCurrency(value)
+    setAmount(formatted)
+  }
+}
+```
+
+### Date Handling
+```javascript
+// ✅ Correct - Use utility functions
+import { formatDate, parseDate } from 'utils/date-utils'
+
+const SIPOrder = ({ startDate }) => {
+  return (
+    <div>
+      Start Date: {formatDate(startDate, 'DD/MM/YYYY')}
+    </div>
+  )
+}
+```
+
+### Error Boundaries
+```javascript
+// ✅ Correct - Wrap financial components
+const InvestmentPage = () => {
+  return (
+    <ErrorBoundary fallback={<InvestmentErrorFallback />}>
+      <InvestmentContainer />
+    </ErrorBoundary>
+  )
+}
+```# Code Standards & Component Development
+
+## File Naming Conventions
+
+### JSX Files
+- **PascalCase** for all JSX files
+- **Pattern**: `LoginPage.jsx` → `LoginContainer.jsx` → `LoginFormComponent.jsx`
+
+```javascript
+// ✅ Correct - Page → Container → Component pattern
+LoginPage.jsx
+LoginContainer.jsx
+LoginFormComponent.jsx
+FundCardComponent.jsx
+AppButtonComponent.jsx
+
+// ❌ Avoid
+loginPage.jsx
+login_container.jsx
+login-form.jsx
+```
+
+### Utility Files
+- **kebab-case** with descriptive suffixes
+- **Suffixes**: `.utils.js`, `.hook.js`, `.slice.js`, `.apislice.js`
+
+```javascript
+// ✅ Correct
+date.utils.js
+currency.utils.js
+useAuth.hook.js
+investment.slice.js
+auth.apislice.js
+
+// ❌ Avoid
+dateUtils.js
+currency_utils.js
+useAuth.js
+investmentSlice.js
+```
+
+### MUI Wrapper Files
+- **PascalCase** with `Component` suffix
+- **Location**: `src/components/mui/`
+
+```javascript
+// ✅ Correct
+AppButtonComponent.jsx
+AppTextFieldComponent.jsx
+AppCardComponent.jsx
+
+// ❌ Avoid
+Button.jsx
+TextField.jsx
+Card.jsx
+```
+
+## JSX File Structure Order
+
+### Required Order for All JSX Files
+1. **Import statements** - All imports at the top
+2. **Component scope** - Constants, static data, configuration
+3. **States, refs, selectors, RTK Query hooks** - All hooks and state
+4. **useEffect hooks** - All side effects
+5. **Other functions and logic** - Event handlers, utility functions
+6. **Return/rendering** - JSX return statement
+
+```javascript
+// ✅ Correct JSX structure
+import React, { useState, useEffect, useRef } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useGetFundsQuery } from 'store/api/investment.apislice'
+import { AppButtonComponent } from 'components/mui/AppButtonComponent'
+import { formatCurrency } from 'utils/currency.utils'
+
+// 2. Component scope
+const FUND_CATEGORIES = ['Equity', 'Debt', 'Hybrid']
+const DEFAULT_PAGE_SIZE = 20
+
+const FundListContainer = ({ onFundSelect }) => {
+  // 3. States, refs, selectors, RTK Query hooks
+  const [selectedFund, setSelectedFund] = useState(null)
+  const [page, setPage] = useState(1)
+  const dispatch = useDispatch()
+  const { data: funds, isLoading, error } = useGetFundsQuery({ page })
+  const user = useSelector(state => state.user.profile)
+  
+  // 4. useEffect hooks
+  useEffect(() => {
+    // Side effects
+  }, [])
+  
+  // 5. Other functions and logic
+  const handleFundClick = (fund) => {
+    setSelectedFund(fund)
+    onFundSelect?.(fund)
+  }
+  
+  // 6. Return/rendering
+  return (
+    <div>
+      {/* JSX content */}
+    </div>
+  )
+}
+
+export default FundListContainer
+```
+
+## Component Development
+
+### Functional Components Only
+- Use React functional components exclusively
+- Use hooks only (useState, useEffect, etc.)
+- No class components
+- **NO TypeScript** - Use PropTypes for type checking
+
+### Component Size Limit
+- **Maximum 300 lines** per component
+- Split large components into smaller, focused components
+- Extract complex logic into custom hooks
+
+### Props Handling
+```javascript
+// ✅ Correct - Destructure props
+const FundCard = ({ fund, onSelect, isSelected = false }) => {
+  // component logic
+}
+
+// ✅ Correct - Provide default values
+const FundCard = ({ 
+  fund, 
+  onSelect, 
+  isSelected = false,
+  showDetails = true 
+}) => {
+  // component logic
+}
+
+// ❌ Avoid - Direct props access
+const FundCard = (props) => {
+  return <div>{props.fund.name}</div>
+}
+
+// ❌ Avoid - Mutating props
+const FundCard = ({ fund }) => {
+  fund.isSelected = true // Never mutate props directly
+}
+```
+
+### PropTypes or Interfaces
+```javascript
+// ✅ Correct - PropTypes
+import PropTypes from 'prop-types'
+
+const FundCard = ({ fund, onSelect, isSelected }) => {
+  // component logic
+}
+
+FundCard.propTypes = {
+  fund: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    nav: PropTypes.number.isRequired,
+    category: PropTypes.string
+  }).isRequired,
+  onSelect: PropTypes.func.isRequired,
+  isSelected: PropTypes.bool
+}
+
+// ✅ Correct - Default props
+FundCard.defaultProps = {
+  isSelected: false
+}
+```
+
+## Reusable MUI Components
+
+### Create Custom MUI Wrappers
+Create **reusable MUI components** under `src/components/common/`:
+
+```javascript
+// src/components/common/AppButton.jsx
+import React from 'react'
+import { Button as MuiButton } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppButton = ({ 
+  variant = 'contained', 
+  color = 'primary',
+  size = 'medium',
+  loading = false,
+  disabled = false,
+  children,
+  ...props 
+}) => {
+  return (
+    <MuiButton
+      variant={variant}
+      color={color}
+      size={size}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading ? 'Loading...' : children}
+    </MuiButton>
+  )
+}
+
+AppButton.propTypes = {
+  variant: PropTypes.oneOf(['contained', 'outlined', 'text']),
+  color: PropTypes.oneOf(['primary', 'secondary', 'error', 'warning', 'info', 'success']),
+  size: PropTypes.oneOf(['small', 'medium', 'large']),
+  loading: PropTypes.bool,
+  disabled: PropTypes.bool,
+  children: PropTypes.node.isRequired
+}
+
+export default AppButton
+```
+
+### Component Examples
+- `CustomButton` - Enhanced MUI Button with loading states
+- `AppModal` - Standardized modal with consistent styling
+- `FormInput` - Form input with validation display
+- `DataTable` - Reusable table component
+- `LoadingSpinner` - Consistent loading indicator
+
+## Code Quality Standards
+
+### Destructuring
+```javascript
+// ✅ Correct - Destructure at function level
+const FundList = ({ funds, onFundSelect, loading }) => {
+  const [selectedFund, setSelectedFund] = useState(null)
+  
+  // component logic
+}
+
+// ✅ Correct - Destructure in useEffect
+useEffect(() => {
+  const { id, name, nav } = fund
+  // use destructured values
+}, [fund])
+```
+
+### State Management
+```javascript
+// ✅ Correct - Use functional updates
+const [count, setCount] = useState(0)
+setCount(prevCount => prevCount + 1)
+
+// ✅ Correct - Multiple state updates
+const [formData, setFormData] = useState({
+  amount: '',
+  duration: '',
+  riskProfile: 'moderate'
+})
+
+setFormData(prev => ({
+  ...prev,
+  amount: '10000'
+}))
+```
+
+### Event Handlers
+```javascript
+// ✅ Correct - Named functions for complex logic
+const handleFundSelect = (fund) => {
+  setSelectedFund(fund)
+  onFundSelect?.(fund)
+  // Additional logic
+}
+
+// ✅ Correct - Inline for simple handlers
+<Button onClick={() => setShowDetails(!showDetails)}>
+  Toggle Details
+</Button>
+```
+
+## Financial App Specific Patterns
+
+### Currency Handling
+```javascript
+// ✅ Correct - Use utility functions
+import { formatCurrency, parseCurrency } from 'utils/currency'
+
+const InvestmentForm = () => {
+  const [amount, setAmount] = useState('')
+  
+  const handleAmountChange = (value) => {
+    const formatted = formatCurrency(value)
+    setAmount(formatted)
+  }
+}
+```
+
+### Date Handling
+```javascript
+// ✅ Correct - Use utility functions
+import { formatDate, parseDate } from 'utils/date-utils'
+
+const SIPOrder = ({ startDate }) => {
+  return (
+    <div>
+      Start Date: {formatDate(startDate, 'DD/MM/YYYY')}
+    </div>
+  )
+}
+```
+
+### Error Boundaries
+```javascript
+// ✅ Correct - Wrap financial components
+const InvestmentPage = () => {
+  return (
+    <ErrorBoundary fallback={<InvestmentErrorFallback />}>
+      <InvestmentContainer />
+    </ErrorBoundary>
+  )
+}
+```

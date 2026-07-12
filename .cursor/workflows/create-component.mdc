@@ -1,0 +1,319 @@
+# Create Component Workflow
+
+## Component Creation Checklist
+
+### 1. File Structure
+- **Location**: `src/components/` for regular components, `src/components/mui/` for MUI wrappers
+- **Naming**: PascalCase with `Component` suffix
+- **Example**: `FundCardComponent.jsx`, `AppButtonComponent.jsx`
+- **Pattern**: Components are props-based only, NO business logic
+
+### 2. Component Template
+```javascript
+// src/components/common/FundCardComponent.jsx
+import React, { memo } from 'react'
+import { Card, CardContent, Typography, Chip, Box } from '@mui/material'
+import PropTypes from 'prop-types'
+import { formatCurrency } from 'utils/currency.utils'
+
+// Component scope
+const RISK_COLORS = {
+  Low: 'success',
+  Moderate: 'warning', 
+  High: 'error'
+}
+
+const FundCardComponent = ({ 
+  fund, 
+  onSelect, 
+  isSelected = false,
+  showDetails = true 
+}) => {
+  // States, refs, selectors, RTK Query hooks
+  // (None for this component - it's props-based only)
+  
+  // useEffect hooks
+  // (None for this component)
+  
+  // Other functions and logic
+  const handleClick = () => {
+    onSelect?.(fund.id)
+  }
+
+  const getRiskColor = (riskLevel) => {
+    return RISK_COLORS[riskLevel] || 'default'
+  }
+
+  // Return/rendering
+  return (
+    <Card
+      onClick={handleClick}
+      sx={{
+        cursor: 'pointer',
+        border: isSelected ? '2px solid #1976d2' : '1px solid #e0e0e0',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          boxShadow: 2,
+          transform: 'translateY(-2px)'
+        }
+      }}
+    >
+      <CardContent>
+        <Typography variant="h6" component="h3" gutterBottom>
+          {fund.name}
+        </Typography>
+        
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="body2" color="text.secondary">
+            NAV
+          </Typography>
+          <Typography variant="h6" fontWeight="bold">
+            {formatCurrency(fund.nav)}
+          </Typography>
+        </Box>
+
+        {showDetails && (
+          <>
+            <Chip 
+              label={fund.category} 
+              size="small" 
+              color="primary" 
+              sx={{ mb: 1 }}
+            />
+            
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              display="block"
+            >
+              Risk: {fund.riskLevel} • Returns: {fund.returns}%
+            </Typography>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+FundCardComponent.propTypes = {
+  fund: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    nav: PropTypes.number.isRequired,
+    category: PropTypes.string.isRequired,
+    riskLevel: PropTypes.string.isRequired,
+    returns: PropTypes.number.isRequired
+  }).isRequired,
+  onSelect: PropTypes.func,
+  isSelected: PropTypes.bool,
+  showDetails: PropTypes.bool
+}
+
+FundCardComponent.defaultProps = {
+  isSelected: false,
+  showDetails: true
+}
+
+export default memo(FundCardComponent)
+```
+
+### 3. Financial Component Example
+```javascript
+// src/components/investment/FundCard.component.jsx
+import React, { memo } from 'react'
+import { Card, CardContent, Typography, Chip, Box } from '@mui/material'
+import PropTypes from 'prop-types'
+import { formatCurrency } from 'utils/currency'
+
+const FundCard = ({ 
+  fund, 
+  onSelect, 
+  isSelected = false,
+  showDetails = true 
+}) => {
+  const handleClick = () => {
+    onSelect?.(fund.id)
+  }
+
+  return (
+    <Card
+      onClick={handleClick}
+      sx={{
+        cursor: 'pointer',
+        border: isSelected ? '2px solid #1976d2' : '1px solid #e0e0e0',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          boxShadow: 2,
+          transform: 'translateY(-2px)'
+        }
+      }}
+    >
+      <CardContent>
+        <Typography variant="h6" component="h3" gutterBottom>
+          {fund.name}
+        </Typography>
+        
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+          <Typography variant="body2" color="text.secondary">
+            NAV
+          </Typography>
+          <Typography variant="h6" fontWeight="bold">
+            {formatCurrency(fund.nav)}
+          </Typography>
+        </Box>
+
+        {showDetails && (
+          <>
+            <Chip 
+              label={fund.category} 
+              size="small" 
+              color="primary" 
+              sx={{ mb: 1 }}
+            />
+            
+            <Typography variant="caption" color="text.secondary">
+              Risk: {fund.riskLevel} • Returns: {fund.returns}%
+            </Typography>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+FundCard.propTypes = {
+  fund: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    nav: PropTypes.number.isRequired,
+    category: PropTypes.string.isRequired,
+    riskLevel: PropTypes.string.isRequired,
+    returns: PropTypes.number.isRequired
+  }).isRequired,
+  onSelect: PropTypes.func,
+  isSelected: PropTypes.bool,
+  showDetails: PropTypes.bool
+}
+
+FundCard.defaultProps = {
+  isSelected: false,
+  showDetails: true
+}
+
+export default memo(FundCard)
+```
+
+### 4. Component Requirements Checklist
+
+#### ✅ Basic Requirements
+- [ ] Use functional component with hooks only
+- [ ] Add React.memo for performance
+- [ ] Include PropTypes with proper validation
+- [ ] Provide default props where appropriate
+- [ ] Use absolute imports (`utils/`, `components/`)
+- [ ] Keep component under 300 lines
+
+#### ✅ MUI Integration
+- [ ] Use MUI components as base
+- [ ] Apply consistent styling with SX prop only
+- [ ] Include proper theme integration
+- [ ] Add hover and focus states with SX
+- [ ] Ensure accessibility (ARIA labels, roles)
+- [ ] Use MUI's responsive breakpoint system
+
+#### ✅ Financial App Specific
+- [ ] Use `formatCurrency` for monetary values
+- [ ] Include proper error handling
+- [ ] Add loading states where needed
+- [ ] Consider mobile responsiveness
+- [ ] Include proper data validation
+
+#### ✅ Testing
+- [ ] Create test file: `__tests__/ComponentName.test.jsx`
+- [ ] Test rendering with different props
+- [ ] Test user interactions (clicks, hovers)
+- [ ] Test accessibility compliance
+- [ ] Test edge cases and error states
+
+### 5. Test Template
+```javascript
+// src/components/__tests__/FundCard.test.jsx
+import React from 'react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import FundCard from '../FundCard'
+
+const mockFund = {
+  id: '1',
+  name: 'HDFC Equity Fund',
+  nav: 150.25,
+  category: 'Equity',
+  riskLevel: 'High',
+  returns: 12.5
+}
+
+describe('FundCard', () => {
+  it('renders fund information correctly', () => {
+    render(<FundCard fund={mockFund} />)
+    
+    expect(screen.getByText('HDFC Equity Fund')).toBeInTheDocument()
+    expect(screen.getByText('₹150.25')).toBeInTheDocument()
+    expect(screen.getByText('Equity')).toBeInTheDocument()
+  })
+
+  it('calls onSelect when clicked', async () => {
+    const user = userEvent.setup()
+    const mockOnSelect = jest.fn()
+    
+    render(<FundCard fund={mockFund} onSelect={mockOnSelect} />)
+    
+    await user.click(screen.getByRole('button'))
+    expect(mockOnSelect).toHaveBeenCalledWith('1')
+  })
+
+  it('shows selected state when isSelected is true', () => {
+    render(<FundCard fund={mockFund} isSelected={true} />)
+    
+    const card = screen.getByRole('button')
+    expect(card).toHaveStyle('border: 2px solid #1976d2')
+  })
+})
+```
+
+### 6. Common Component Types
+
+#### Form Components
+- `AppTextField` - Enhanced MUI TextField
+- `AppSelect` - Enhanced MUI Select
+- `AppCheckbox` - Enhanced MUI Checkbox
+- `AppRadioGroup` - Enhanced MUI RadioGroup
+
+#### Display Components
+- `CurrencyDisplay` - Formatted currency display
+- `PercentageDisplay` - Formatted percentage display
+- `DateDisplay` - Formatted date display
+- `LoadingSpinner` - Consistent loading indicator
+
+#### Layout Components
+- `AppCard` - Standardized card component
+- `AppModal` - Standardized modal component
+- `AppDialog` - Standardized dialog component
+- `AppTooltip` - Standardized tooltip component
+
+#### Financial Components
+- `FundCard` - Mutual fund display card
+- `PortfolioSummary` - Portfolio overview
+- `SIPCalculator` - SIP calculation widget
+- `PerformanceChart` - Investment performance chart
+
+### 7. Export Pattern
+```javascript
+// src/components/common/index.js
+export { default as AppButton } from './AppButton.component'
+export { default as AppTextField } from './AppTextField.component'
+export { default as AppCard } from './AppCard.component'
+export { default as AppModal } from './AppModal.component'
+
+// Usage
+import { AppButton, AppTextField } from 'components/common'
+```

@@ -1,0 +1,505 @@
+# Create Hook Workflow
+
+## Custom Hook Creation Checklist
+
+### 1. File Structure
+- **Location**: `src/hooks/`
+- **Naming**: camelCase with `.hook.js` suffix
+- **Example**: `useAuth.hook.js`, `useInvestment.hook.js`
+- **Export**: Named export as default
+
+### 2. Hook Template
+```javascript
+// src/hooks/usePortfolio.js
+import { useState, useEffect, useCallback } from 'react'
+import { useSelector } from 'react-redux'
+import { useGetPortfolioQuery } from 'store/api/investmentApi'
+
+const usePortfolio = () => {
+  const [selectedTimeRange, setSelectedTimeRange] = useState('1Y')
+  const [portfolioStats, setPortfolioStats] = useState(null)
+  
+  // Redux state
+  const investments = useSelector(state => state.investment.investments)
+  const marketData = useSelector(state => state.investment.marketData)
+  
+  // RTK Query
+  const { 
+    data: portfolio, 
+    error, 
+    isLoading,
+    refetch 
+  } = useGetPortfolioQuery()
+
+  // Calculate portfolio statistics
+  const calculateStats = useCallback(() => {
+    if (!investments.length || !marketData) {
+      return {
+        totalValue: 0,
+        totalGain: 0,
+        totalGainPercentage: 0,
+        topPerformer: null
+      }
+    }
+
+    const totalValue = investments.reduce((sum, investment) => {
+      const currentPrice = marketData[investment.fundId]?.nav || 0
+      return sum + (investment.units * currentPrice)
+    }, 0)
+
+    const totalInvested = investments.reduce((sum, investment) => {
+      return sum + investment.investedAmount
+    }, 0)
+
+    const totalGain = totalValue - totalInvested
+    const totalGainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0
+
+    const topPerformer = investments.reduce((top, investment) => {
+      const currentPrice = marketData[investment.fundId]?.nav || 0
+      const gain = (currentPrice - investment.averagePrice) / investment.averagePrice
+      const topGain = top ? (top.currentPrice - top.averagePrice) / top.averagePrice : -1
+      return gain > topGain ? { ...investment, currentPrice, gain } : top
+    }, null)
+
+    return {
+      totalValue,
+      totalGain,
+      totalGainPercentage,
+      topPerformer
+    }
+  }, [investments, marketData])
+
+  // Update stats when dependencies change
+  useEffect(() => {
+    const stats = calculateStats()
+    setPortfolioStats(stats)
+  }, [calculateStats])
+
+  // Refresh portfolio data
+  const refreshPortfolio = useCallback(() => {
+    refetch()
+  }, [refetch])
+
+  // Change time range
+  const changeTimeRange = useCallback((timeRange) => {
+    setSelectedTimeRange(timeRange)
+  }, [])
+
+  return {
+    // Data
+    portfolio,
+    portfolioStats,
+    selectedTimeRange,
+    
+    // Loading states
+    isLoading,
+    error,
+    
+    // Actions
+    refreshPortfolio,
+    changeTimeRange
+  }
+}
+
+export default usePortfolio
+```
+
+### 3. Financial Hook Examples
+
+#### Investment Calculator Hook
+```javascript
+// src/hooks/useInvestmentCalculator.js
+import { useState, useCallback, useMemo } from 'react'
+
+const useInvestmentCalculator = () => {
+  const [amount, setAmount] = useState('')
+  const [duration, setDuration] = useState(12)
+  const [expectedReturn, setExpectedReturn] = useState(12)
+  const [frequency, setFrequency] = useState('monthly')
+
+  // Calculate SIP returns
+  const sipCalculation = useMemo(() => {
+    if (!amount || !duration || !expectedReturn) {
+      return {
+        totalInvested: 0,
+        totalValue: 0,
+        totalGain: 0,
+        totalGainPercentage: 0
+      }
+    }
+
+    const monthlyAmount = parseFloat(amount)
+    const months = duration
+    const monthlyRate = expectedReturn / 100 / 12
+
+    // SIP formula: A = P * [((1 + r)^n - 1) / r] * (1 + r)
+    const totalValue = monthlyAmount * 
+      (((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate))
+    
+    const totalInvested = monthlyAmount * months
+    const totalGain = totalValue - totalInvested
+    const totalGainPercentage = (totalGain / totalInvested) * 100
+
+    return {
+      totalInvested,
+      totalValue,
+      totalGain,
+      totalGainPercentage
+    }
+  }, [amount, duration, expectedReturn])
+
+  // Calculate lumpsum returns
+  const lumpsumCalculation = useMemo(() => {
+    if (!amount || !duration || !expectedReturn) {
+      return {
+        totalInvested: 0,
+        totalValue: 0,
+        totalGain: 0,
+        totalGainPercentage: 0
+      }
+    }
+
+    const investedAmount = parseFloat(amount)
+    const years = duration / 12
+    const annualRate = expectedReturn / 100
+
+    // Lumpsum formula: A = P * (1 + r)^n
+    const totalValue = investedAmount * Math.pow(1 + annualRate, years)
+    const totalGain = totalValue - investedAmount
+    const totalGainPercentage = (totalGain / investedAmount) * 100
+
+    return {
+      totalInvested: investedAmount,
+      totalValue,
+      totalGain,
+      totalGainPercentage
+    }
+  }, [amount, duration, expectedReturn])
+
+  const updateAmount = useCallback((value) => {
+    setAmount(value)
+  }, [])
+
+  const updateDuration = useCallback((value) => {
+    setDuration(value)
+  }, [])
+
+  const updateExpectedReturn = useCallback((value) => {
+    setExpectedReturn(value)
+  }, [])
+
+  const updateFrequency = useCallback((value) => {
+    setFrequency(value)
+  }, [])
+
+  return {
+    // State
+    amount,
+    duration,
+    expectedReturn,
+    frequency,
+    
+    // Calculations
+    sipCalculation,
+    lumpsumCalculation,
+    
+    // Actions
+    updateAmount,
+    updateDuration,
+    updateExpectedReturn,
+    updateFrequency
+  }
+}
+
+export default useInvestmentCalculator
+```
+
+#### Authentication Hook
+```javascript
+// src/hooks/useAuth.js
+import { useState, useEffect, useCallback } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
+import { useLoginMutation, useLogoutMutation } from 'store/api/authApi'
+import { setUser, clearUser } from 'store/slices/userSlice'
+import { getAuthTokens, clearAuthTokens } from 'utils/auth'
+
+const useAuth = () => {
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+  
+  const [isInitialized, setIsInitialized] = useState(false)
+  
+  // Redux state
+  const user = useSelector(state => state.user.profile)
+  const isAuthenticated = useSelector(state => state.user.isAuthenticated)
+  
+  // RTK Query mutations
+  const [login, { isLoading: isLoggingIn }] = useLoginMutation()
+  const [logout, { isLoading: isLoggingOut }] = useLogoutMutation()
+
+  // Initialize auth state
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const tokens = getAuthTokens()
+        if (tokens?.accessToken) {
+          // Verify token and get user data
+          // This would typically be an API call
+          const userData = await verifyToken(tokens.accessToken)
+          if (userData) {
+            dispatch(setUser(userData))
+          } else {
+            clearAuthTokens()
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization failed:', error)
+        clearAuthTokens()
+      } finally {
+        setIsInitialized(true)
+      }
+    }
+
+    initializeAuth()
+  }, [dispatch])
+
+  // Login function
+  const handleLogin = useCallback(async (credentials) => {
+    try {
+      const response = await login(credentials).unwrap()
+      
+      // Store tokens
+      setAuthTokens({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken
+      })
+      
+      // Update user state
+      dispatch(setUser(response.user))
+      
+      // Navigate to dashboard
+      navigate('/dashboard')
+      
+      return { success: true }
+    } catch (error) {
+      console.error('Login failed:', error)
+      return { 
+        success: false, 
+        error: error.data?.message || 'Login failed' 
+      }
+    }
+  }, [login, dispatch, navigate])
+
+  // Logout function
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout().unwrap()
+    } catch (error) {
+      console.error('Logout API failed:', error)
+    } finally {
+      // Always clear local state
+      clearAuthTokens()
+      dispatch(clearUser())
+      navigate('/login')
+    }
+  }, [logout, dispatch, navigate])
+
+  // Check if user has specific permission
+  const hasPermission = useCallback((permission) => {
+    return user?.permissions?.includes(permission) || false
+  }, [user])
+
+  // Check if user has specific role
+  const hasRole = useCallback((role) => {
+    return user?.role === role
+  }, [user])
+
+  return {
+    // State
+    user,
+    isAuthenticated,
+    isInitialized,
+    isLoggingIn,
+    isLoggingOut,
+    
+    // Actions
+    login: handleLogin,
+    logout: handleLogout,
+    hasPermission,
+    hasRole
+  }
+}
+
+export default useAuth
+```
+
+#### Form Validation Hook
+```javascript
+// src/hooks/useFormValidation.js
+import { useState, useCallback } from 'react'
+import * as yup from 'yup'
+
+const useFormValidation = (schema) => {
+  const [errors, setErrors] = useState({})
+  const [isValid, setIsValid] = useState(false)
+
+  const validateField = useCallback(async (fieldName, value) => {
+    try {
+      await schema.validateAt(fieldName, { [fieldName]: value })
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[fieldName]
+        return newErrors
+      })
+      return true
+    } catch (error) {
+      setErrors(prev => ({
+        ...prev,
+        [fieldName]: error.message
+      }))
+      return false
+    }
+  }, [schema])
+
+  const validateForm = useCallback(async (data) => {
+    try {
+      await schema.validate(data, { abortEarly: false })
+      setErrors({})
+      setIsValid(true)
+      return true
+    } catch (error) {
+      const newErrors = {}
+      error.inner.forEach(err => {
+        newErrors[err.path] = err.message
+      })
+      setErrors(newErrors)
+      setIsValid(false)
+      return false
+    }
+  }, [schema])
+
+  const clearErrors = useCallback(() => {
+    setErrors({})
+  }, [])
+
+  const clearFieldError = useCallback((fieldName) => {
+    setErrors(prev => {
+      const newErrors = { ...prev }
+      delete newErrors[fieldName]
+      return newErrors
+    })
+  }, [])
+
+  return {
+    errors,
+    isValid,
+    validateField,
+    validateForm,
+    clearErrors,
+    clearFieldError
+  }
+}
+
+export default useFormValidation
+```
+
+### 4. Hook Requirements Checklist
+
+#### ✅ Basic Requirements
+- [ ] Use `use` prefix in naming
+- [ ] Return object with state and actions
+- [ ] Use proper dependency arrays in useEffect/useCallback
+- [ ] Include JSDoc comments for complex hooks
+- [ ] Handle loading and error states
+- [ ] Clean up subscriptions and timers
+
+#### ✅ Financial App Specific
+- [ ] Include proper error handling for API calls
+- [ ] Use financial data formatting utilities
+- [ ] Include validation for financial calculations
+- [ ] Add proper loading states for async operations
+- [ ] Include cleanup for real-time data subscriptions
+
+#### ✅ Performance
+- [ ] Use useCallback for event handlers
+- [ ] Use useMemo for expensive calculations
+- [ ] Avoid unnecessary re-renders
+- [ ] Clean up side effects properly
+
+### 5. Testing Template
+```javascript
+// src/hooks/__tests__/usePortfolio.test.js
+import { renderHook, act } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { configureStore } from '@reduxjs/toolkit'
+import usePortfolio from '../usePortfolio'
+
+const createMockStore = (initialState = {}) => {
+  return configureStore({
+    reducer: {
+      investment: (state = initialState, action) => state
+    }
+  })
+}
+
+const wrapper = ({ children }) => {
+  const store = createMockStore({
+    investments: [
+      { id: '1', units: 100, averagePrice: 50, fundId: 'fund1' },
+      { id: '2', units: 200, averagePrice: 25, fundId: 'fund2' }
+    ],
+    marketData: {
+      fund1: { nav: 60 },
+      fund2: { nav: 30 }
+    }
+  })
+  
+  return <Provider store={store}>{children}</Provider>
+}
+
+describe('usePortfolio', () => {
+  it('calculates portfolio value correctly', () => {
+    const { result } = renderHook(() => usePortfolio(), { wrapper })
+    
+    expect(result.current.portfolioStats.totalValue).toBe(12000) // (100 * 60) + (200 * 30)
+    expect(result.current.portfolioStats.totalGain).toBe(2000) // 12000 - 10000
+    expect(result.current.portfolioStats.totalGainPercentage).toBe(20) // (2000 / 10000) * 100
+  })
+
+  it('updates time range correctly', () => {
+    const { result } = renderHook(() => usePortfolio(), { wrapper })
+    
+    act(() => {
+      result.current.changeTimeRange('6M')
+    })
+    
+    expect(result.current.selectedTimeRange).toBe('6M')
+  })
+})
+```
+
+### 6. Common Hook Patterns
+
+#### Data Fetching Hooks
+- `useFunds` - Fetch and manage fund data
+- `usePortfolio` - Portfolio calculations and management
+- `useTransactions` - Transaction history management
+- `useMarketData` - Real-time market data
+
+#### Form Hooks
+- `useFormValidation` - Form validation logic
+- `useFormSubmission` - Form submission handling
+- `useFormPersistence` - Form data persistence
+
+#### UI Hooks
+- `useModal` - Modal state management
+- `useToast` - Toast notification management
+- `useTheme` - Theme switching logic
+- `useResponsive` - Responsive design helpers
+
+#### Utility Hooks
+- `useLocalStorage` - Local storage management
+- `useDebounce` - Debounced value updates
+- `useThrottle` - Throttled function calls
+- `usePrevious` - Previous value tracking

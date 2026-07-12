@@ -1,0 +1,292 @@
+---
+alwaysApply: true
+---
+# Architecture & Project Structure
+
+## Domain-Based Organization
+All features must be organized by domain: auth, profile, dashboard, investment, etc.
+
+### Folder Structure
+```
+src/
+├── assets/           # Static assets like images, icons
+├── components/       # Reusable UI components (props-based only)
+│   ├── common/       # Shared components (Button, Modal, Input)
+│   ├── mui/          # MUI wrapper components
+│   └── layouts/      # Layout components (AuthLayout, MainLayout)
+├── containers/       # Container components (business logic, API, Redux)
+├── hooks/            # Custom React hooks (.hook.js)
+├── pages/            # Page components (minimal, delegate to containers)
+├── router/           # Routing configuration
+├── store/            # Redux store configuration
+│   ├── api/          # RTK Query API definitions (.apislice.js)
+│   ├── parsers/      # API response parsers
+│   └── slices/       # Redux slices (.slice.js)
+├── theme/            # Theme configuration and styling constants
+└── utils/            # Utility functions (.utils.js)
+```
+
+## Absolute Imports
+Use **absolute imports** throughout the project.
+
+### Configuration
+- Configure `baseUrl` to `src` in `jsconfig.json`
+- Avoid relative imports like `../../../utils`
+
+### Examples
+```javascript
+// ✅ Correct - Absolute imports
+import { formatDate } from 'utils/date-utils'
+import { LoginContainer } from 'containers/LoginContainer'
+import { Button } from 'components/common/Button'
+import { useAuth } from 'hooks/useAuth'
+
+// ❌ Avoid - Relative imports
+import { formatDate } from '../../../utils/date-utils'
+import { LoginContainer } from '../containers/LoginContainer'
+```
+
+## Module Boundaries
+
+### Components Layer
+- **Location**: `src/components/` and `src/components/mui/`
+- **Purpose**: Pure UI components, props-based only, NO business logic
+- **Dependencies**: Only MUI components and other UI components
+- **Props**: Receive data and callbacks from containers
+- **Pattern**: Handle scenarios based on props, no API calls or state management
+
+### MUI Wrapper Components
+- **Location**: `src/components/mui/`
+- **Purpose**: Wrapped MUI components with consistent styling and behavior
+- **Dependencies**: MUI components only
+- **Pattern**: Create wrapper for every MUI component used in the app
+
+### Containers Layer
+- **Location**: `src/containers/`
+- **Purpose**: Business logic, state management, API calls, Redux connections
+- **Dependencies**: Redux, RTK Query, custom hooks, components
+- **Pattern**: Container → Components → UI
+
+### Pages Layer
+- **Location**: `src/pages/`
+- **Purpose**: Route-level components, minimal logic, delegate to containers
+- **Pattern**: Page → Container → Components
+
+### API Layer
+- **Location**: `src/store/api/` (RTK Query .apislice.js files)
+- **Purpose**: API communication, data fetching, response parsing
+- **Dependencies**: Redux store, base API configuration, parsers
+
+### Parsers Layer
+- **Location**: `src/store/parsers/`
+- **Purpose**: Transform API responses to app-friendly format
+- **Dependencies**: None (pure functions)
+
+## File Organization by Domain
+
+### Investment Domain
+```
+src/
+├── components/
+│   └── investment/
+│       ├── FundCard.jsx
+│       ├── SIPCalculator.jsx
+│       └── PortfolioChart.jsx
+├── containers/
+│   └── investment/
+│       ├── FundListContainer.jsx
+│       ├── SIPOrderContainer.jsx
+│       └── PortfolioContainer.jsx
+├── pages/
+│   └── investment/
+│       ├── FundListPage.jsx
+│       ├── SIPOrderPage.jsx
+│       └── PortfolioPage.jsx
+└── store/
+    ├── api/
+    │   └── investmentApi.js
+    └── slices/
+        └── investmentSlice.js
+```
+
+### Authentication Domain
+```
+src/
+├── components/
+│   └── auth/
+│       ├── LoginForm.jsx
+│       └── OTPVerification.jsx
+├── containers/
+│   └── auth/
+│       ├── LoginContainer.jsx
+│       └── OTPContainer.jsx
+├── pages/
+│   └── auth/
+│       ├── LoginPage.jsx
+│       └── OTPPage.jsx
+└── store/
+    ├── api/
+    │   └── authApi.js
+    └── slices/
+        └── userSlice.js
+```
+
+## Import Order
+1. React and React-related imports
+2. Third-party libraries (MUI, Redux, etc.)
+3. Internal imports (absolute paths)
+4. Relative imports (if absolutely necessary)
+
+```javascript
+// ✅ Correct import order
+import React, { useState, useEffect } from 'react'
+import { Button, TextField } from '@mui/material'
+import { useDispatch, useSelector } from 'react-redux'
+import { formatCurrency } from 'utils/currency'
+import { useAuth } from 'hooks/useAuth'
+import { LoginContainer } from 'containers/LoginContainer'
+```# Architecture & Project Structure
+
+## Domain-Based Organization
+All features must be organized by domain: auth, profile, dashboard, investment, etc.
+
+### Folder Structure
+```
+src/
+├── assets/           # Static assets like images, icons
+├── components/       # Reusable UI components (props-based only)
+│   ├── common/       # Shared components (Button, Modal, Input)
+│   ├── mui/          # MUI wrapper components
+│   └── layouts/      # Layout components (AuthLayout, MainLayout)
+├── containers/       # Container components (business logic, API, Redux)
+├── hooks/            # Custom React hooks (.hook.js)
+├── pages/            # Page components (minimal, delegate to containers)
+├── router/           # Routing configuration
+├── store/            # Redux store configuration
+│   ├── api/          # RTK Query API definitions (.apislice.js)
+│   ├── parsers/      # API response parsers
+│   └── slices/       # Redux slices (.slice.js)
+├── theme/            # Theme configuration and styling constants
+└── utils/            # Utility functions (.utils.js)
+```
+
+## Absolute Imports
+Use **absolute imports** throughout the project.
+
+### Configuration
+- Configure `baseUrl` to `src` in `jsconfig.json`
+- Avoid relative imports like `../../../utils`
+
+### Examples
+```javascript
+// ✅ Correct - Absolute imports
+import { formatDate } from 'utils/date-utils'
+import { LoginContainer } from 'containers/LoginContainer'
+import { Button } from 'components/common/Button'
+import { useAuth } from 'hooks/useAuth'
+
+// ❌ Avoid - Relative imports
+import { formatDate } from '../../../utils/date-utils'
+import { LoginContainer } from '../containers/LoginContainer'
+```
+
+## Module Boundaries
+
+### Components Layer
+- **Location**: `src/components/` and `src/components/mui/`
+- **Purpose**: Pure UI components, props-based only, NO business logic
+- **Dependencies**: Only MUI components and other UI components
+- **Props**: Receive data and callbacks from containers
+- **Pattern**: Handle scenarios based on props, no API calls or state management
+
+### MUI Wrapper Components
+- **Location**: `src/components/mui/`
+- **Purpose**: Wrapped MUI components with consistent styling and behavior
+- **Dependencies**: MUI components only
+- **Pattern**: Create wrapper for every MUI component used in the app
+
+### Containers Layer
+- **Location**: `src/containers/`
+- **Purpose**: Business logic, state management, API calls, Redux connections
+- **Dependencies**: Redux, RTK Query, custom hooks, components
+- **Pattern**: Container → Components → UI
+
+### Pages Layer
+- **Location**: `src/pages/`
+- **Purpose**: Route-level components, minimal logic, delegate to containers
+- **Pattern**: Page → Container → Components
+
+### API Layer
+- **Location**: `src/store/api/` (RTK Query .apislice.js files)
+- **Purpose**: API communication, data fetching, response parsing
+- **Dependencies**: Redux store, base API configuration, parsers
+
+### Parsers Layer
+- **Location**: `src/store/parsers/`
+- **Purpose**: Transform API responses to app-friendly format
+- **Dependencies**: None (pure functions)
+
+## File Organization by Domain
+
+### Investment Domain
+```
+src/
+├── components/
+│   └── investment/
+│       ├── FundCard.jsx
+│       ├── SIPCalculator.jsx
+│       └── PortfolioChart.jsx
+├── containers/
+│   └── investment/
+│       ├── FundListContainer.jsx
+│       ├── SIPOrderContainer.jsx
+│       └── PortfolioContainer.jsx
+├── pages/
+│   └── investment/
+│       ├── FundListPage.jsx
+│       ├── SIPOrderPage.jsx
+│       └── PortfolioPage.jsx
+└── store/
+    ├── api/
+    │   └── investmentApi.js
+    └── slices/
+        └── investmentSlice.js
+```
+
+### Authentication Domain
+```
+src/
+├── components/
+│   └── auth/
+│       ├── LoginForm.jsx
+│       └── OTPVerification.jsx
+├── containers/
+│   └── auth/
+│       ├── LoginContainer.jsx
+│       └── OTPContainer.jsx
+├── pages/
+│   └── auth/
+│       ├── LoginPage.jsx
+│       └── OTPPage.jsx
+└── store/
+    ├── api/
+    │   └── authApi.js
+    └── slices/
+        └── userSlice.js
+```
+
+## Import Order
+1. React and React-related imports
+2. Third-party libraries (MUI, Redux, etc.)
+3. Internal imports (absolute paths)
+4. Relative imports (if absolutely necessary)
+
+```javascript
+// ✅ Correct import order
+import React, { useState, useEffect } from 'react'
+import { Button, TextField } from '@mui/material'
+import { useDispatch, useSelector } from 'react-redux'
+import { formatCurrency } from 'utils/currency'
+import { useAuth } from 'hooks/useAuth'
+import { LoginContainer } from 'containers/LoginContainer'
+```

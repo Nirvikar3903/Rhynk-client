@@ -1,0 +1,672 @@
+# Capacitor.js Mobile Development
+
+## Capacitor.js Integration
+
+### Platform Detection
+```javascript
+// src/utils/platform.js
+import { Capacitor } from '@capacitor/core'
+
+export const isNative = () => Capacitor.isNativePlatform()
+export const isWeb = () => !Capacitor.isNativePlatform()
+export const getPlatform = () => Capacitor.getPlatform()
+
+export const isIOS = () => getPlatform() === 'ios'
+export const isAndroid = () => getPlatform() === 'android'
+export const isMobile = () => isIOS() || isAndroid()
+
+// Usage in components
+const ResponsiveComponent = () => {
+  const platform = getPlatform()
+  
+  return (
+    <div>
+      {isMobile() ? (
+        <MobileLayout />
+      ) : (
+        <DesktopLayout />
+      )}
+    </div>
+  )
+}
+```
+
+### Device Information
+```javascript
+// src/hooks/useDeviceInfo.js
+import { useState, useEffect } from 'react'
+import { Device } from '@capacitor/device'
+
+const useDeviceInfo = () => {
+  const [deviceInfo, setDeviceInfo] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const getDeviceInfo = async () => {
+      try {
+        const info = await Device.getInfo()
+        setDeviceInfo(info)
+      } catch (error) {
+        console.error('Failed to get device info:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getDeviceInfo()
+  }, [])
+
+  return { deviceInfo, loading }
+}
+
+export default useDeviceInfo
+```
+
+## Mobile-Specific UI Patterns
+
+### Touch-Optimized Components
+```javascript
+// src/components/mobile/TouchButton.jsx
+import React from 'react'
+import { Button } from '@mui/material'
+import { isMobile } from 'utils/platform'
+
+const TouchButton = ({ children, ...props }) => {
+  return (
+    <Button
+      {...props}
+      sx={{
+        minHeight: isMobile() ? 48 : 36, // Larger touch targets on mobile
+        minWidth: isMobile() ? 48 : 36,
+        fontSize: isMobile() ? '1rem' : '0.875rem',
+        px: isMobile() ? 3 : 2,
+        py: isMobile() ? 1.5 : 1,
+        touchAction: 'manipulation', // Disable double-tap zoom
+        ...props.sx
+      }}
+    >
+      {children}
+    </Button>
+  )
+}
+
+export default TouchButton
+```
+
+### Mobile Navigation
+```javascript
+// src/components/mobile/MobileNavigation.jsx
+import React, { useState } from 'react'
+import { 
+  BottomNavigation, 
+  BottomNavigationAction,
+  Paper
+} from '@mui/material'
+import { 
+  Home, 
+  TrendingUp, 
+  AccountBalance, 
+  Person 
+} from '@mui/icons-material'
+import { useNavigate, useLocation } from 'react-router-dom'
+
+const MobileNavigation = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [value, setValue] = useState(0)
+
+  const handleChange = (event, newValue) => {
+    setValue(newValue)
+    const routes = ['/dashboard', '/portfolio', '/investment', '/profile']
+    navigate(routes[newValue])
+  }
+
+  // Don't show on web
+  if (!isMobile()) return null
+
+  return (
+    <Paper 
+      sx={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        zIndex: 1000 
+      }} 
+      elevation={3}
+    >
+      <BottomNavigation value={value} onChange={handleChange}>
+        <BottomNavigationAction
+          label="Dashboard"
+          icon={<Home />}
+        />
+        <BottomNavigationAction
+          label="Portfolio"
+          icon={<TrendingUp />}
+        />
+        <BottomNavigationAction
+          label="Investment"
+          icon={<AccountBalance />}
+        />
+        <BottomNavigationAction
+          label="Profile"
+          icon={<Person />}
+        />
+      </BottomNavigation>
+    </Paper>
+  )
+}
+
+export default MobileNavigation
+```
+
+### Mobile-First Responsive Design
+```javascript
+// src/components/mobile/ResponsiveContainer.jsx
+import React from 'react'
+import { Box } from '@mui/material'
+import { isMobile } from 'utils/platform'
+
+const ResponsiveContainer = ({ children, ...props }) => {
+  return (
+    <Box
+      sx={{
+        p: isMobile() ? 2 : 3,
+        maxWidth: isMobile() ? '100%' : '1200px',
+        mx: 'auto',
+        minHeight: isMobile() ? 'calc(100vh - 56px)' : '100vh', // Account for bottom nav
+        pb: isMobile() ? '80px' : 0, // Space for bottom navigation
+        ...props.sx
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
+
+export default ResponsiveContainer
+```
+
+## Native Plugin Usage
+
+### Biometric Authentication
+```javascript
+// src/utils/biometricAuth.js
+import { BiometricAuth } from '@capacitor-community/biometric-auth'
+
+export const isBiometricAvailable = async () => {
+  try {
+    const result = await BiometricAuth.isAvailable()
+    return result.isAvailable
+  } catch (error) {
+    console.error('Biometric check failed:', error)
+    return false
+  }
+}
+
+export const authenticateWithBiometric = async () => {
+  try {
+    const result = await BiometricAuth.authenticate({
+      reason: 'Authenticate to access your investment portfolio',
+      title: 'Biometric Authentication',
+      subtitle: 'Use your fingerprint or face to continue',
+      description: 'This ensures only you can access your financial data'
+    })
+    
+    return result.isAuthenticated
+  } catch (error) {
+    console.error('Biometric authentication failed:', error)
+    return false
+  }
+}
+
+// Usage in login
+const LoginWithBiometric = () => {
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+
+  useEffect(() => {
+    isBiometricAvailable().then(setBiometricAvailable)
+  }, [])
+
+  const handleBiometricLogin = async () => {
+    const success = await authenticateWithBiometric()
+    if (success) {
+      // Proceed with login
+      navigate('/dashboard')
+    }
+  }
+
+  if (!biometricAvailable) return null
+
+  return (
+    <Button onClick={handleBiometricLogin}>
+      Login with Biometric
+    </Button>
+  )
+}
+```
+
+### Device Storage
+```javascript
+// src/utils/deviceStorage.js
+import { Preferences } from '@capacitor/preferences'
+
+export const deviceStorage = {
+  set: async (key, value) => {
+    try {
+      await Preferences.set({
+        key,
+        value: JSON.stringify(value)
+      })
+    } catch (error) {
+      console.error('Failed to save to device storage:', error)
+    }
+  },
+
+  get: async (key) => {
+    try {
+      const result = await Preferences.get({ key })
+      return result.value ? JSON.parse(result.value) : null
+    } catch (error) {
+      console.error('Failed to get from device storage:', error)
+      return null
+    }
+  },
+
+  remove: async (key) => {
+    try {
+      await Preferences.remove({ key })
+    } catch (error) {
+      console.error('Failed to remove from device storage:', error)
+    }
+  }
+}
+
+// Usage for storing user preferences
+const useUserPreferences = () => {
+  const [preferences, setPreferences] = useState({})
+
+  useEffect(() => {
+    deviceStorage.get('userPreferences').then(setPreferences)
+  }, [])
+
+  const updatePreferences = async (newPreferences) => {
+    const updated = { ...preferences, ...newPreferences }
+    setPreferences(updated)
+    await deviceStorage.set('userPreferences', updated)
+  }
+
+  return { preferences, updatePreferences }
+}
+```
+
+### Network Status
+```javascript
+// src/hooks/useNetworkStatus.js
+import { useState, useEffect } from 'react'
+import { Network } from '@capacitor/network'
+
+const useNetworkStatus = () => {
+  const [isOnline, setIsOnline] = useState(true)
+  const [connectionType, setConnectionType] = useState('unknown')
+
+  useEffect(() => {
+    const getNetworkStatus = async () => {
+      try {
+        const status = await Network.getStatus()
+        setIsOnline(status.connected)
+        setConnectionType(status.connectionType)
+      } catch (error) {
+        console.error('Failed to get network status:', error)
+      }
+    }
+
+    getNetworkStatus()
+
+    const handleNetworkChange = (status) => {
+      setIsOnline(status.connected)
+      setConnectionType(status.connectionType)
+    }
+
+    Network.addListener('networkStatusChange', handleNetworkChange)
+
+    return () => {
+      Network.removeAllListeners()
+    }
+  }, [])
+
+  return { isOnline, connectionType }
+}
+
+// Usage in components
+const NetworkAwareComponent = () => {
+  const { isOnline, connectionType } = useNetworkStatus()
+
+  if (!isOnline) {
+    return (
+      <Alert severity="warning">
+        You are offline. Some features may not be available.
+      </Alert>
+    )
+  }
+
+  return <div>Online content</div>
+}
+```
+
+### Push Notifications
+```javascript
+// src/utils/pushNotifications.js
+import { PushNotifications } from '@capacitor/push-notifications'
+
+export const initializePushNotifications = async () => {
+  try {
+    // Request permissions
+    const permStatus = await PushNotifications.requestPermissions()
+    
+    if (permStatus.receive === 'granted') {
+      // Register for push notifications
+      await PushNotifications.register()
+    }
+  } catch (error) {
+    console.error('Failed to initialize push notifications:', error)
+  }
+}
+
+export const setupPushListeners = () => {
+  // Handle registration
+  PushNotifications.addListener('registration', (token) => {
+    console.log('Push registration success, token: ' + token.value)
+    // Send token to your server
+  })
+
+  // Handle registration errors
+  PushNotifications.addListener('registrationError', (error) => {
+    console.error('Push registration error:', error)
+  })
+
+  // Handle incoming notifications
+  PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    console.log('Push notification received:', notification)
+    // Handle notification display
+  })
+
+  // Handle notification actions
+  PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+    console.log('Push notification action performed:', notification)
+    // Handle notification action
+  })
+}
+```
+
+## Mobile-Specific Features
+
+### Pull-to-Refresh
+```javascript
+// src/components/mobile/PullToRefresh.jsx
+import React, { useState } from 'react'
+import { Box, CircularProgress } from '@mui/material'
+
+const PullToRefresh = ({ children, onRefresh }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [startY, setStartY] = useState(0)
+  const [pullDistance, setPullDistance] = useState(0)
+
+  const handleTouchStart = (e) => {
+    setStartY(e.touches[0].clientY)
+  }
+
+  const handleTouchMove = (e) => {
+    if (window.scrollY === 0) {
+      const currentY = e.touches[0].clientY
+      const distance = Math.max(0, currentY - startY)
+      setPullDistance(distance)
+    }
+  }
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 100 && !isRefreshing) {
+      setIsRefreshing(true)
+      try {
+        await onRefresh()
+      } finally {
+        setIsRefreshing(false)
+        setPullDistance(0)
+      }
+    } else {
+      setPullDistance(0)
+    }
+  }
+
+  return (
+    <Box
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      sx={{
+        position: 'relative',
+        transform: `translateY(${Math.min(pullDistance * 0.5, 50)}px)`,
+        transition: isRefreshing ? 'none' : 'transform 0.3s ease'
+      }}
+    >
+      {isRefreshing && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -50,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000
+          }}
+        >
+          <CircularProgress size={24} />
+        </Box>
+      )}
+      {children}
+    </Box>
+  )
+}
+
+export default PullToRefresh
+```
+
+### Mobile Gestures
+```javascript
+// src/hooks/useSwipeGesture.js
+import { useState, useRef } from 'react'
+
+const useSwipeGesture = (onSwipeLeft, onSwipeRight) => {
+  const [touchStart, setTouchStart] = useState(null)
+  const [touchEnd, setTouchEnd] = useState(null)
+
+  const minSwipeDistance = 50
+
+  const onTouchStart = (e) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    if (isLeftSwipe && onSwipeLeft) {
+      onSwipeLeft()
+    }
+    if (isRightSwipe && onSwipeRight) {
+      onSwipeRight()
+    }
+  }
+
+  return {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd
+  }
+}
+
+// Usage
+const SwipeableCard = () => {
+  const swipeHandlers = useSwipeGesture(
+    () => console.log('Swiped left'),
+    () => console.log('Swiped right')
+  )
+
+  return (
+    <div {...swipeHandlers}>
+      Swipe me!
+    </div>
+  )
+}
+```
+
+## Mobile Performance
+
+### Image Optimization
+```javascript
+// src/components/mobile/OptimizedImage.jsx
+import React, { useState } from 'react'
+import { Box, Skeleton } from '@mui/material'
+import { isMobile } from 'utils/platform'
+
+const OptimizedImage = ({ src, alt, ...props }) => {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const handleLoad = () => {
+    setLoading(false)
+  }
+
+  const handleError = () => {
+    setLoading(false)
+    setError(true)
+  }
+
+  return (
+    <Box position="relative" {...props}>
+      {loading && (
+        <Skeleton 
+          variant="rectangular" 
+          width="100%" 
+          height={isMobile() ? 200 : 300} 
+        />
+      )}
+      {!error && (
+        <img
+          src={src}
+          alt={alt}
+          onLoad={handleLoad}
+          onError={handleError}
+          style={{
+            display: loading ? 'none' : 'block',
+            width: '100%',
+            height: 'auto',
+            objectFit: 'cover'
+          }}
+          loading="lazy"
+        />
+      )}
+      {error && (
+        <Box
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          height={isMobile() ? 200 : 300}
+          bgcolor="grey.100"
+        >
+          Image failed to load
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+export default OptimizedImage
+```
+
+### SafeAreaView for Mobile
+```javascript
+// src/components/mobile/SafeAreaView.jsx
+import React from 'react'
+import { Box } from '@mui/material'
+import { isMobile } from 'utils/platform'
+
+const SafeAreaView = ({ children, ...props }) => {
+  return (
+    <Box
+      sx={{
+        paddingTop: isMobile() ? 'env(safe-area-inset-top)' : 0,
+        paddingBottom: isMobile() ? 'env(safe-area-inset-bottom)' : 0,
+        paddingLeft: isMobile() ? 'env(safe-area-inset-left)' : 0,
+        paddingRight: isMobile() ? 'env(safe-area-inset-right)' : 0,
+        minHeight: isMobile() ? '100vh' : 'auto',
+        ...props.sx
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
+
+export default SafeAreaView
+```
+
+### Mobile-Specific CSS
+```css
+/* src/styles/mobile.css */
+@media (max-width: 768px) {
+  /* Prevent zoom on input focus */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* Smooth scrolling */
+  html {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Remove tap highlights */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Optimize touch targets */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area support */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+```

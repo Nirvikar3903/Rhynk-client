@@ -1,0 +1,484 @@
+# Authentication & Security
+
+## Token Storage Strategy
+
+### Preferred: HttpOnly Cookies
+```javascript
+// src/utils/auth.js
+import { encrypt, decrypt } from './cryptoService'
+
+// Server-side: Set HttpOnly cookies
+const setAuthCookies = (res, tokens) => {
+  res.cookie('accessToken', tokens.accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 15 * 60 * 1000 // 15 minutes
+  })
+  
+  res.cookie('refreshToken', tokens.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  })
+}
+
+// Client-side: Check for tokens in cookies (handled by browser)
+const getAuthToken = () => {
+  // Browser automatically includes HttpOnly cookies in requests
+  // No need to manually retrieve them
+  return null // Token is handled by browser
+}
+```
+
+### Fallback: Encrypted localStorage
+```javascript
+// src/utils/auth.js
+import { encrypt, decrypt } from './cryptoService'
+
+const TOKEN_KEY = 'auth_tokens'
+const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY
+
+// Store encrypted tokens
+export const setAuthTokens = (tokens) => {
+  try {
+    const encryptedTokens = encrypt(JSON.stringify(tokens), ENCRYPTION_KEY)
+    localStorage.setItem(TOKEN_KEY, encryptedTokens)
+  } catch (error) {
+    console.error('Failed to store auth tokens:', error)
+  }
+}
+
+// Retrieve and decrypt tokens
+export const getAuthTokens = () => {
+  try {
+    const encryptedTokens = localStorage.getItem(TOKEN_KEY)
+    if (!encryptedTokens) return null
+    
+    const decryptedTokens = decrypt(encryptedTokens, ENCRYPTION_KEY)
+    return JSON.parse(decryptedTokens)
+  } catch (error) {
+    console.error('Failed to retrieve auth tokens:', error)
+    clearAuthTokens()
+    return null
+  }
+}
+
+// Clear tokens on logout
+export const clearAuthTokens = () => {
+  localStorage.removeItem(TOKEN_KEY)
+}
+```
+
+## Refresh Token Mechanism
+
+### Token Refresh Implementation
+```javascript
+// src/store/api/authApi.js
+import { baseApi } from './baseApi'
+
+export const authApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    login: builder.mutation({
+      query: (credentials) => ({
+        url: '/auth/login',
+        method: 'POST',
+        body: credentials
+      }),
+      invalidatesTags: ['User']
+    }),
+    
+    refreshToken: builder.mutation({
+      query: (refreshToken) => ({
+        url: '/auth/refresh',
+        method: 'POST',
+        body: { refreshToken }
+      })
+    }),
+    
+    logout: builder.mutation({
+      query: () => ({
+        url: '/auth/logout',
+        method: 'POST'
+      }),
+      invalidatesTags: ['User']
+    })
+  })
+})
+
+// Token refresh interceptor
+const refreshTokenIfNeeded = async (token) => {
+  if (!token || isTokenExpired(token)) {
+    const refreshToken = getRefreshToken()
+    if (refreshToken) {
+      try {
+        const response = await authApi.endpoints.refreshToken.initiate(refreshToken)
+        const newTokens = response.data
+        setAuthTokens(newTokens)
+        return newTokens.accessToken
+      } catch (error) {
+        clearAuthTokens()
+        throw new Error('Token refresh failed')
+      }
+    }
+    throw new Error('No valid refresh token')
+  }
+  return token
+}
+```
+
+### Token Expiration Check
+```javascript
+// src/utils/tokenUtils.js
+export const isTokenExpired = (token) => {
+  if (!token) return true
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    const currentTime = Date.now() / 1000
+    return payload.exp < currentTime
+  } catch (error) {
+    return true
+  }
+}
+
+export const getTokenExpirationTime = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return new Date(payload.exp * 1000)
+  } catch (error) {
+    return null
+  }
+}
+```
+
+## Authentication Flow
+
+### Login Process
+```javascript
+// src/containers/LoginContainer.jsx
+import { useLoginMutation } from 'store/api/authApi'
+import { setAuthTokens, clearAuthTokens } from 'utils/auth'
+
+const LoginContainer = () => {
+  const [login, { isLoading, error }] = useLoginMutation()
+  const navigate = useNavigate()
+
+  const handleLogin = async (credentials) => {
+    try {
+      const response = await login(credentials).unwrap()
+      
+      // Store tokens securely
+      setAuthTokens({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken
+      })
+      
+      // Update user state
+      dispatch(setUser(response.user))
+      
+      // Navigate to dashboard
+      navigate('/dashboard')
+    } catch (error) {
+      console.error('Login failed:', error)
+      // Error is handled by the mutation
+    }
+  }
+
+  return (
+    <LoginForm 
+      onSubmit={handleLogin}
+      loading={isLoading}
+      error={error}
+    />
+  )
+}
+```
+
+### Logout Process
+```javascript
+// src/containers/LogoutContainer.jsx
+import { useLogoutMutation } from 'store/api/authApi'
+import { clearAuthTokens } from 'utils/auth'
+
+const LogoutContainer = () => {
+  const [logout] = useLogoutMutation()
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    try {
+      // Call logout API
+      await logout().unwrap()
+    } catch (error) {
+      console.error('Logout API failed:', error)
+    } finally {
+      // Always clear local state
+      clearAuthTokens()
+      dispatch(clearUser())
+      navigate('/login')
+    }
+  }
+
+  return (
+    <Button onClick={handleLogout}>
+      Logout
+    </Button>
+  )
+}
+```
+
+## Security Best Practices
+
+### HTTPS Enforcement
+```javascript
+// src/utils/security.js
+export const enforceHTTPS = () => {
+  if (process.env.NODE_ENV === 'production' && window.location.protocol !== 'https:') {
+    window.location.replace(window.location.href.replace('http:', 'https:'))
+  }
+}
+
+// Call in main.jsx
+enforceHTTPS()
+```
+
+### Content Security Policy
+```javascript
+// public/index.html
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval';
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  img-src 'self' data: https:;
+  connect-src 'self' https://api.yourdomain.com;
+">
+```
+
+### Input Validation & Sanitization
+```javascript
+// src/utils/validation.js
+import DOMPurify from 'dompurify'
+
+export const sanitizeInput = (input) => {
+  return DOMPurify.sanitize(input)
+}
+
+export const validateFinancialInput = (value) => {
+  // Remove any non-numeric characters except decimal point
+  const cleaned = value.replace(/[^0-9.]/g, '')
+  
+  // Ensure only one decimal point
+  const parts = cleaned.split('.')
+  if (parts.length > 2) {
+    return parts[0] + '.' + parts.slice(1).join('')
+  }
+  
+  return cleaned
+}
+```
+
+### XSS Protection
+```javascript
+// src/components/SafeText.jsx
+import React from 'react'
+import DOMPurify from 'dompurify'
+
+const SafeText = ({ content, ...props }) => {
+  const sanitizedContent = DOMPurify.sanitize(content)
+  
+  return (
+    <span 
+      {...props}
+      dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+    />
+  )
+}
+
+export default SafeText
+```
+
+## API Security
+
+### Request Interceptors
+```javascript
+// src/store/api/baseApi.js
+import { baseQuery } from './baseQuery'
+
+const baseQueryWithReauth = async (args, api, extraOptions) => {
+  let result = await baseQuery(args, api, extraOptions)
+  
+  if (result.error && result.error.status === 401) {
+    // Try to refresh token
+    const refreshResult = await api.dispatch(
+      authApi.endpoints.refreshToken.initiate()
+    )
+    
+    if (refreshResult.data) {
+      // Retry original request with new token
+      result = await baseQuery(args, api, extraOptions)
+    } else {
+      // Refresh failed, redirect to login
+      api.dispatch(clearUser())
+      window.location.href = '/login'
+    }
+  }
+  
+  return result
+}
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery: baseQueryWithReauth,
+  // ... other config
+})
+```
+
+### CSRF Protection
+```javascript
+// src/utils/csrf.js
+export const getCSRFToken = () => {
+  return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+}
+
+// Include in API requests
+const baseQuery = fetchBaseQuery({
+  baseUrl: process.env.REACT_APP_API_BASE_URL,
+  prepareHeaders: (headers) => {
+    const csrfToken = getCSRFToken()
+    if (csrfToken) {
+      headers.set('X-CSRF-Token', csrfToken)
+    }
+    return headers
+  }
+})
+```
+
+## Financial Data Security
+
+### Sensitive Data Handling
+```javascript
+// src/utils/financialSecurity.js
+import CryptoJS from 'crypto-js'
+
+export const encryptSensitiveData = (data, key) => {
+  return CryptoJS.AES.encrypt(JSON.stringify(data), key).toString()
+}
+
+export const decryptSensitiveData = (encryptedData, key) => {
+  const bytes = CryptoJS.AES.decrypt(encryptedData, key)
+  return JSON.parse(bytes.toString(CryptoJS.enc.Utf8))
+}
+
+// Mask sensitive data in logs
+export const maskSensitiveData = (data) => {
+  const masked = { ...data }
+  
+  if (masked.panNumber) {
+    masked.panNumber = masked.panNumber.replace(/(.{2}).*(.{2})/, '$1****$2')
+  }
+  
+  if (masked.accountNumber) {
+    masked.accountNumber = masked.accountNumber.replace(/(.{4}).*(.{4})/, '$1****$2')
+  }
+  
+  return masked
+}
+```
+
+### Secure Storage for Financial Data
+```javascript
+// src/utils/secureStorage.js
+export const secureStorage = {
+  setItem: (key, value) => {
+    const encrypted = encryptSensitiveData(value, process.env.REACT_APP_ENCRYPTION_KEY)
+    localStorage.setItem(key, encrypted)
+  },
+  
+  getItem: (key) => {
+    const encrypted = localStorage.getItem(key)
+    if (!encrypted) return null
+    
+    try {
+      return decryptSensitiveData(encrypted, process.env.REACT_APP_ENCRYPTION_KEY)
+    } catch (error) {
+      console.error('Failed to decrypt data:', error)
+      return null
+    }
+  },
+  
+  removeItem: (key) => {
+    localStorage.removeItem(key)
+  }
+}
+```
+
+## Compliance & Privacy
+
+### Data Privacy
+```javascript
+// src/utils/privacy.js
+export const anonymizeUserData = (userData) => {
+  return {
+    ...userData,
+    email: userData.email.replace(/(.{2}).*(@.*)/, '$1***$2'),
+    phone: userData.phone.replace(/(.{3}).*(.{3})/, '$1***$2')
+  }
+}
+
+export const shouldLogData = (data) => {
+  // Don't log sensitive financial data in production
+  if (process.env.NODE_ENV === 'production') {
+    return maskSensitiveData(data)
+  }
+  return data
+}
+```
+
+### Cookie Consent
+```javascript
+// src/components/CookieConsent.jsx
+import React, { useState, useEffect } from 'react'
+import { Button, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
+
+const CookieConsent = () => {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const consent = localStorage.getItem('cookie-consent')
+    if (!consent) {
+      setOpen(true)
+    }
+  }, [])
+
+  const handleAccept = () => {
+    localStorage.setItem('cookie-consent', 'accepted')
+    setOpen(false)
+  }
+
+  const handleDecline = () => {
+    localStorage.setItem('cookie-consent', 'declined')
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} maxWidth="sm" fullWidth>
+      <DialogTitle>Cookie Consent</DialogTitle>
+      <DialogContent>
+        <p>
+          We use cookies to enhance your experience and analyze our traffic. 
+          By clicking "Accept", you consent to our use of cookies.
+        </p>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleDecline}>Decline</Button>
+        <Button onClick={handleAccept} variant="contained">Accept</Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+export default CookieConsent
+```

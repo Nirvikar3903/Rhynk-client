@@ -1,0 +1,969 @@
+---
+description: when designing and referring to mui library
+alwaysApply: false
+---
+# UI Styling & Design System
+
+## UI Library Stack
+- **Primary**: MUI (Material-UI) - Main component library with SX-based styling
+- **Styling**: MUI SX prop for all custom styling needs
+- **No mixing** of other UI libraries or styling approaches
+
+## MUI Design System
+
+### MUI Component Usage
+```javascript
+// ✅ Correct - Use MUI components directly
+import { 
+  Button, 
+  TextField, 
+  Card, 
+  CardContent,
+  Typography,
+  Box,
+  Grid
+} from '@mui/material'
+
+const FundCard = ({ fund }) => {
+  return (
+    <Card sx={{ maxWidth: 345 }}>
+      <CardContent>
+        <Typography variant="h6" component="h2">
+          {fund.name}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          NAV: ₹{fund.nav}
+        </Typography>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
+### MUI Theme Configuration
+```javascript
+// src/theme/index.js
+import { createTheme } from '@mui/material/styles'
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+      light: '#42a5f5',
+      dark: '#1565c0'
+    },
+    secondary: {
+      main: '#dc004e'
+    },
+    success: {
+      main: '#2e7d32'
+    },
+    error: {
+      main: '#d32f2f'
+    },
+    warning: {
+      main: '#ed6c02'
+    }
+  },
+  typography: {
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h4: {
+      fontWeight: 600
+    },
+    h6: {
+      fontWeight: 500
+    }
+  },
+  spacing: 8, // 8px base spacing unit
+  shape: {
+    borderRadius: 8
+  }
+})
+
+export default theme
+```
+
+### Custom MUI Components
+Create reusable MUI wrappers in `src/components/common/`:
+
+```javascript
+// src/components/common/AppTextField.jsx
+import React from 'react'
+import { TextField } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppTextField = ({
+  label,
+  value,
+  onChange,
+  error,
+  helperText,
+  required = false,
+  type = 'text',
+  ...props
+}) => {
+  return (
+    <TextField
+      label={label}
+      value={value}
+      onChange={onChange}
+      error={!!error}
+      helperText={error || helperText}
+      required={required}
+      type={type}
+      variant="outlined"
+      fullWidth
+      margin="normal"
+      {...props}
+    />
+  )
+}
+
+AppTextField.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string,
+  helperText: PropTypes.string,
+  required: PropTypes.bool,
+  type: PropTypes.string
+}
+
+export default AppTextField
+```
+
+## MUI SX-Based Styling
+
+### SX Prop Usage
+Use MUI's SX prop for all custom styling needs:
+
+```javascript
+// ✅ Correct - SX-based styling
+const FundList = () => {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: 'repeat(2, 1fr)',
+          lg: 'repeat(3, 1fr)'
+        },
+        gap: 2,
+        p: 2
+      }}
+    >
+      {funds.map(fund => (
+        <Card
+          key={fund.id}
+          sx={{
+            bgcolor: 'white',
+            borderRadius: 2,
+            boxShadow: 2,
+            p: 2,
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              boxShadow: 4,
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'grey.800' }}>
+            {fund.name}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'grey.600' }}>
+            {fund.category}
+          </Typography>
+        </Card>
+      ))}
+    </Box>
+  )
+}
+```
+
+### Responsive Design with SX
+```javascript
+// ✅ Correct - Responsive patterns using SX
+const InvestmentForm = () => {
+  return (
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: '800px',
+        mx: 'auto'
+      }}
+    >
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <AppTextField
+            label="Investment Amount"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <AppTextField
+            label="Duration (months)"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <AppTextField
+            label="Risk Profile"
+            fullWidth
+          />
+        </Grid>
+      </Grid>
+    </Box>
+  )
+}
+```
+
+### Custom Styling with SX
+```javascript
+// ✅ Correct - Complex styling with SX
+const FundCard = ({ fund }) => {
+  return (
+    <Card
+      sx={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        transition: 'transform 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-4px)'
+        },
+        '& .fund-name': {
+          fontWeight: 600,
+          mb: 1
+        },
+        '& .fund-nav': {
+          fontSize: '1.2rem',
+          fontWeight: 700
+        }
+      }}
+    >
+      <Box className="fund-name">{fund.name}</Box>
+      <Box className="fund-nav">₹{fund.nav}</Box>
+    </Card>
+  )
+}
+```
+
+### Global Styles with MUI Theme
+```javascript
+// src/theme/globalStyles.js
+import { createTheme } from '@mui/material/styles'
+
+const theme = createTheme({
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          fontFamily: 'Roboto, sans-serif',
+          margin: 0,
+          padding: 0,
+          backgroundColor: '#f5f5f5'
+        },
+        '.financial-highlight': {
+          color: '#2e7d32',
+          fontWeight: 600
+        },
+        '.financial-warning': {
+          color: '#ed6c02',
+          fontWeight: 500
+        },
+        '.financial-error': {
+          color: '#d32f2f',
+          fontWeight: 500
+        }
+      }
+    }
+  }
+})
+
+export default theme
+```
+
+## Responsive Design Standards
+
+### MUI Breakpoints
+```javascript
+// MUI breakpoints (xs, sm, md, lg, xl)
+const breakpoints = {
+  xs: 0,      // Extra small devices (phones)
+  sm: 600,    // Small devices (tablets)
+  md: 900,    // Medium devices (desktops)
+  lg: 1200,   // Large devices (large desktops)
+  xl: 1536    // Extra large devices
+}
+
+// SX responsive grid
+const ResponsiveGrid = () => (
+  <Box
+    sx={{
+      display: 'grid',
+      gridTemplateColumns: {
+        xs: '1fr',
+        sm: 'repeat(2, 1fr)',
+        md: 'repeat(3, 1fr)',
+        lg: 'repeat(4, 1fr)'
+      },
+      gap: 2
+    }}
+  >
+    {/* Grid items */}
+  </Box>
+)
+```
+
+### Mobile-First Approach
+```javascript
+// ✅ Correct - Mobile-first responsive design with SX
+const InvestmentDashboard = () => {
+  return (
+    <Box
+      sx={{
+        p: { xs: 2, sm: 4, md: 6, lg: 8 }
+      }}
+    >
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: 'repeat(2, 1fr)',
+            lg: 'repeat(3, 1fr)'
+          },
+          gap: 2
+        }}
+      >
+        {/* Dashboard components */}
+      </Box>
+    </Box>
+  )
+}
+```
+
+## Financial App Specific Styling
+
+### Currency Display
+```javascript
+// src/components/common/CurrencyDisplay.jsx
+import React from 'react'
+import { Box, Typography } from '@mui/material'
+
+const CurrencyDisplay = ({ amount, variant = 'neutral' }) => {
+  const formatted = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR'
+  }).format(amount)
+  
+  const getVariantStyles = (variant) => {
+    switch (variant) {
+      case 'positive':
+        return { color: 'success.main' }
+      case 'negative':
+        return { color: 'error.main' }
+      default:
+        return { color: 'text.secondary' }
+    }
+  }
+  
+  return (
+    <Typography
+      sx={{
+        fontFamily: 'Roboto Mono, monospace',
+        fontWeight: 600,
+        ...getVariantStyles(variant)
+      }}
+    >
+      {formatted}
+    </Typography>
+  )
+}
+
+export default CurrencyDisplay
+```
+
+### Chart Styling
+```javascript
+// src/components/common/ChartContainer.jsx
+import React from 'react'
+import { Box, Typography } from '@mui/material'
+
+const ChartContainer = ({ title, subtitle, children }) => {
+  return (
+    <Box
+      sx={{
+        bgcolor: 'white',
+        borderRadius: 2,
+        p: 2,
+        boxShadow: 1,
+        '& .chart-title': {
+          fontSize: '1.1rem',
+          fontWeight: 600,
+          mb: 2,
+          color: 'text.primary'
+        },
+        '& .chart-subtitle': {
+          fontSize: '0.9rem',
+          color: 'text.secondary',
+          mb: 1
+        }
+      }}
+    >
+      {title && (
+        <Typography className="chart-title">
+          {title}
+        </Typography>
+      )}
+      {subtitle && (
+        <Typography className="chart-subtitle">
+          {subtitle}
+        </Typography>
+      )}
+      {children}
+    </Box>
+  )
+}
+
+export default ChartContainer
+```
+
+## Accessibility Standards
+
+### Color Contrast
+- Ensure minimum WCAG AA contrast ratios
+- Use MUI's built-in color system
+- Test with color contrast analyzers
+
+### Focus Management
+```javascript
+// ✅ Correct - Proper focus management with SX
+const AccessibleButton = ({ children, ...props }) => {
+  return (
+    <Button
+      {...props}
+      sx={{
+        '&:focus': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '2px'
+        },
+        '&:focus-visible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '2px'
+        },
+        ...props.sx
+      }}
+    >
+      {children}
+    </Button>
+  )
+}
+```
+
+### Screen Reader Support
+```javascript
+// ✅ Correct - ARIA labels and roles
+const FundCard = ({ fund }) => {
+  return (
+    <Card 
+      role="button"
+      tabIndex={0}
+      aria-label={`Fund: ${fund.name}, NAV: ₹${fund.nav}`}
+    >
+      <CardContent>
+        <Typography variant="h6" component="h3">
+          {fund.name}
+        </Typography>
+        <Typography variant="body2">
+          NAV: ₹{fund.nav}
+        </Typography>
+      </CardContent>
+    </Card>
+  )
+}
+```# UI Styling & Design System
+
+## UI Library Stack
+- **Primary**: MUI (Material-UI) - Main component library with SX-based styling
+- **Styling**: MUI SX prop for all custom styling needs
+- **No mixing** of other UI libraries or styling approaches
+
+## MUI Design System
+
+### MUI Component Usage
+```javascript
+// ✅ Correct - Use MUI components directly
+import { 
+  Button, 
+  TextField, 
+  Card, 
+  CardContent,
+  Typography,
+  Box,
+  Grid
+} from '@mui/material'
+
+const FundCard = ({ fund }) => {
+  return (
+    <Card sx={{ maxWidth: 345 }}>
+      <CardContent>
+        <Typography variant="h6" component="h2">
+          {fund.name}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          NAV: ₹{fund.nav}
+        </Typography>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
+### MUI Theme Configuration
+```javascript
+// src/theme/index.js
+import { createTheme } from '@mui/material/styles'
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+      light: '#42a5f5',
+      dark: '#1565c0'
+    },
+    secondary: {
+      main: '#dc004e'
+    },
+    success: {
+      main: '#2e7d32'
+    },
+    error: {
+      main: '#d32f2f'
+    },
+    warning: {
+      main: '#ed6c02'
+    }
+  },
+  typography: {
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h4: {
+      fontWeight: 600
+    },
+    h6: {
+      fontWeight: 500
+    }
+  },
+  spacing: 8, // 8px base spacing unit
+  shape: {
+    borderRadius: 8
+  }
+})
+
+export default theme
+```
+
+### Custom MUI Components
+Create reusable MUI wrappers in `src/components/common/`:
+
+```javascript
+// src/components/common/AppTextField.jsx
+import React from 'react'
+import { TextField } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppTextField = ({
+  label,
+  value,
+  onChange,
+  error,
+  helperText,
+  required = false,
+  type = 'text',
+  ...props
+}) => {
+  return (
+    <TextField
+      label={label}
+      value={value}
+      onChange={onChange}
+      error={!!error}
+      helperText={error || helperText}
+      required={required}
+      type={type}
+      variant="outlined"
+      fullWidth
+      margin="normal"
+      {...props}
+    />
+  )
+}
+
+AppTextField.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string,
+  helperText: PropTypes.string,
+  required: PropTypes.bool,
+  type: PropTypes.string
+}
+
+export default AppTextField
+```
+
+## MUI SX-Based Styling
+
+### SX Prop Usage
+Use MUI's SX prop for all custom styling needs:
+
+```javascript
+// ✅ Correct - SX-based styling
+const FundList = () => {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: 'repeat(2, 1fr)',
+          lg: 'repeat(3, 1fr)'
+        },
+        gap: 2,
+        p: 2
+      }}
+    >
+      {funds.map(fund => (
+        <Card
+          key={fund.id}
+          sx={{
+            bgcolor: 'white',
+            borderRadius: 2,
+            boxShadow: 2,
+            p: 2,
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              boxShadow: 4,
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'grey.800' }}>
+            {fund.name}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'grey.600' }}>
+            {fund.category}
+          </Typography>
+        </Card>
+      ))}
+    </Box>
+  )
+}
+```
+
+### Responsive Design with SX
+```javascript
+// ✅ Correct - Responsive patterns using SX
+const InvestmentForm = () => {
+  return (
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: '800px',
+        mx: 'auto'
+      }}
+    >
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <AppTextField
+            label="Investment Amount"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <AppTextField
+            label="Duration (months)"
+            fullWidth
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <AppTextField
+            label="Risk Profile"
+            fullWidth
+          />
+        </Grid>
+      </Grid>
+    </Box>
+  )
+}
+```
+
+### Custom Styling with SX
+```javascript
+// ✅ Correct - Complex styling with SX
+const FundCard = ({ fund }) => {
+  return (
+    <Card
+      sx={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        transition: 'transform 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-4px)'
+        },
+        '& .fund-name': {
+          fontWeight: 600,
+          mb: 1
+        },
+        '& .fund-nav': {
+          fontSize: '1.2rem',
+          fontWeight: 700
+        }
+      }}
+    >
+      <Box className="fund-name">{fund.name}</Box>
+      <Box className="fund-nav">₹{fund.nav}</Box>
+    </Card>
+  )
+}
+```
+
+### Global Styles with MUI Theme
+```javascript
+// src/theme/globalStyles.js
+import { createTheme } from '@mui/material/styles'
+
+const theme = createTheme({
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          fontFamily: 'Roboto, sans-serif',
+          margin: 0,
+          padding: 0,
+          backgroundColor: '#f5f5f5'
+        },
+        '.financial-highlight': {
+          color: '#2e7d32',
+          fontWeight: 600
+        },
+        '.financial-warning': {
+          color: '#ed6c02',
+          fontWeight: 500
+        },
+        '.financial-error': {
+          color: '#d32f2f',
+          fontWeight: 500
+        }
+      }
+    }
+  }
+})
+
+export default theme
+```
+
+## Responsive Design Standards
+
+### MUI Breakpoints
+```javascript
+// MUI breakpoints (xs, sm, md, lg, xl)
+const breakpoints = {
+  xs: 0,      // Extra small devices (phones)
+  sm: 600,    // Small devices (tablets)
+  md: 900,    // Medium devices (desktops)
+  lg: 1200,   // Large devices (large desktops)
+  xl: 1536    // Extra large devices
+}
+
+// SX responsive grid
+const ResponsiveGrid = () => (
+  <Box
+    sx={{
+      display: 'grid',
+      gridTemplateColumns: {
+        xs: '1fr',
+        sm: 'repeat(2, 1fr)',
+        md: 'repeat(3, 1fr)',
+        lg: 'repeat(4, 1fr)'
+      },
+      gap: 2
+    }}
+  >
+    {/* Grid items */}
+  </Box>
+)
+```
+
+### Mobile-First Approach
+```javascript
+// ✅ Correct - Mobile-first responsive design with SX
+const InvestmentDashboard = () => {
+  return (
+    <Box
+      sx={{
+        p: { xs: 2, sm: 4, md: 6, lg: 8 }
+      }}
+    >
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: 'repeat(2, 1fr)',
+            lg: 'repeat(3, 1fr)'
+          },
+          gap: 2
+        }}
+      >
+        {/* Dashboard components */}
+      </Box>
+    </Box>
+  )
+}
+```
+
+## Financial App Specific Styling
+
+### Currency Display
+```javascript
+// src/components/common/CurrencyDisplay.jsx
+import React from 'react'
+import { Box, Typography } from '@mui/material'
+
+const CurrencyDisplay = ({ amount, variant = 'neutral' }) => {
+  const formatted = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR'
+  }).format(amount)
+  
+  const getVariantStyles = (variant) => {
+    switch (variant) {
+      case 'positive':
+        return { color: 'success.main' }
+      case 'negative':
+        return { color: 'error.main' }
+      default:
+        return { color: 'text.secondary' }
+    }
+  }
+  
+  return (
+    <Typography
+      sx={{
+        fontFamily: 'Roboto Mono, monospace',
+        fontWeight: 600,
+        ...getVariantStyles(variant)
+      }}
+    >
+      {formatted}
+    </Typography>
+  )
+}
+
+export default CurrencyDisplay
+```
+
+### Chart Styling
+```javascript
+// src/components/common/ChartContainer.jsx
+import React from 'react'
+import { Box, Typography } from '@mui/material'
+
+const ChartContainer = ({ title, subtitle, children }) => {
+  return (
+    <Box
+      sx={{
+        bgcolor: 'white',
+        borderRadius: 2,
+        p: 2,
+        boxShadow: 1,
+        '& .chart-title': {
+          fontSize: '1.1rem',
+          fontWeight: 600,
+          mb: 2,
+          color: 'text.primary'
+        },
+        '& .chart-subtitle': {
+          fontSize: '0.9rem',
+          color: 'text.secondary',
+          mb: 1
+        }
+      }}
+    >
+      {title && (
+        <Typography className="chart-title">
+          {title}
+        </Typography>
+      )}
+      {subtitle && (
+        <Typography className="chart-subtitle">
+          {subtitle}
+        </Typography>
+      )}
+      {children}
+    </Box>
+  )
+}
+
+export default ChartContainer
+```
+
+## Accessibility Standards
+
+### Color Contrast
+- Ensure minimum WCAG AA contrast ratios
+- Use MUI's built-in color system
+- Test with color contrast analyzers
+
+### Focus Management
+```javascript
+// ✅ Correct - Proper focus management with SX
+const AccessibleButton = ({ children, ...props }) => {
+  return (
+    <Button
+      {...props}
+      sx={{
+        '&:focus': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '2px'
+        },
+        '&:focus-visible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: '2px'
+        },
+        ...props.sx
+      }}
+    >
+      {children}
+    </Button>
+  )
+}
+```
+
+### Screen Reader Support
+```javascript
+// ✅ Correct - ARIA labels and roles
+const FundCard = ({ fund }) => {
+  return (
+    <Card 
+      role="button"
+      tabIndex={0}
+      aria-label={`Fund: ${fund.name}, NAV: ₹${fund.nav}`}
+    >
+      <CardContent>
+        <Typography variant="h6" component="h3">
+          {fund.name}
+        </Typography>
+        <Typography variant="body2">
+          NAV: ₹{fund.nav}
+        </Typography>
+      </CardContent>
+    </Card>
+  )
+}
+```

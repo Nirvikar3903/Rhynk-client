@@ -1,0 +1,435 @@
+# Figma Integration Workflow
+
+## Figma Design System Integration Checklist
+
+### 1. Figma Setup
+- **Figma File Access**: Get Figma file URL or shared access
+- **Design Tokens**: Extract colors, typography, spacing, components
+- **Component Library**: Identify reusable components
+- **Design System**: Create consistent theme based on Figma
+
+### 2. Design Token Extraction
+
+#### Color Palette
+```javascript
+// src/theme/figmaColors.js
+export const figmaColors = {
+  // Primary Colors
+  primary: {
+    50: '#E3F2FD',
+    100: '#BBDEFB',
+    200: '#90CAF9',
+    300: '#64B5F6',
+    400: '#42A5F5',
+    500: '#2196F3', // Main primary
+    600: '#1E88E5',
+    700: '#1976D2',
+    800: '#1565C0',
+    900: '#0D47A1'
+  },
+  
+  // Secondary Colors
+  secondary: {
+    50: '#F3E5F5',
+    100: '#E1BEE7',
+    200: '#CE93D8',
+    300: '#BA68C8',
+    400: '#AB47BC',
+    500: '#9C27B0', // Main secondary
+    600: '#8E24AA',
+    700: '#7B1FA2',
+    800: '#6A1B9A',
+    900: '#4A148C'
+  },
+  
+  // Financial App Specific Colors
+  financial: {
+    success: '#2E7D32', // Green for gains
+    error: '#D32F2F',   // Red for losses
+    warning: '#F57C00', // Orange for warnings
+    info: '#1976D2',    // Blue for information
+    neutral: '#757575'  // Gray for neutral states
+  },
+  
+  // Background Colors
+  background: {
+    default: '#FAFAFA',
+    paper: '#FFFFFF',
+    elevated: '#F5F5F5'
+  },
+  
+  // Text Colors
+  text: {
+    primary: '#212121',
+    secondary: '#757575',
+    disabled: '#BDBDBD',
+    hint: '#9E9E9E'
+  }
+}
+```
+
+#### Typography Scale
+```javascript
+// src/theme/figmaTypography.js
+export const figmaTypography = {
+  fontFamily: {
+    primary: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    secondary: 'Roboto Mono, "Courier New", monospace',
+    display: 'Poppins, -apple-system, BlinkMacSystemFont, sans-serif'
+  },
+  
+  fontSize: {
+    xs: '0.75rem',    // 12px
+    sm: '0.875rem',   // 14px
+    base: '1rem',     // 16px
+    lg: '1.125rem',   // 18px
+    xl: '1.25rem',    // 20px
+    '2xl': '1.5rem',  // 24px
+    '3xl': '1.875rem', // 30px
+    '4xl': '2.25rem', // 36px
+    '5xl': '3rem'     // 48px
+  },
+  
+  fontWeight: {
+    light: 300,
+    normal: 400,
+    medium: 500,
+    semibold: 600,
+    bold: 700,
+    extrabold: 800
+  },
+  
+  lineHeight: {
+    tight: 1.25,
+    normal: 1.5,
+    relaxed: 1.75
+  }
+}
+```
+
+#### Spacing System
+```javascript
+// src/theme/figmaSpacing.js
+export const figmaSpacing = {
+  // Base spacing unit (8px)
+  unit: 8,
+  
+  // Spacing scale
+  spacing: {
+    0: 0,
+    1: '0.25rem',  // 4px
+    2: '0.5rem',   // 8px
+    3: '0.75rem',  // 12px
+    4: '1rem',     // 16px
+    5: '1.25rem',  // 20px
+    6: '1.5rem',   // 24px
+    8: '2rem',     // 32px
+    10: '2.5rem',  // 40px
+    12: '3rem',    // 48px
+    16: '4rem',    // 64px
+    20: '5rem',    // 80px
+    24: '6rem',    // 96px
+    32: '8rem'     // 128px
+  },
+  
+  // Component specific spacing
+  component: {
+    buttonPadding: {
+      small: '0.5rem 1rem',
+      medium: '0.75rem 1.5rem',
+      large: '1rem 2rem'
+    },
+    cardPadding: '1.5rem',
+    formSpacing: '1rem',
+    sectionSpacing: '2rem'
+  }
+}
+```
+
+### 3. MUI Theme Integration
+```javascript
+// src/theme/figmaTheme.js
+import { createTheme } from '@mui/material/styles'
+import { figmaColors } from './figmaColors'
+import { figmaTypography } from './figmaTypography'
+import { figmaSpacing } from './figmaSpacing'
+
+export const figmaTheme = createTheme({
+  palette: {
+    primary: {
+      main: figmaColors.primary[500],
+      light: figmaColors.primary[300],
+      dark: figmaColors.primary[700],
+      contrastText: '#FFFFFF'
+    },
+    secondary: {
+      main: figmaColors.secondary[500],
+      light: figmaColors.secondary[300],
+      dark: figmaColors.secondary[700],
+      contrastText: '#FFFFFF'
+    },
+    success: {
+      main: figmaColors.financial.success
+    },
+    error: {
+      main: figmaColors.financial.error
+    },
+    warning: {
+      main: figmaColors.financial.warning
+    },
+    info: {
+      main: figmaColors.financial.info
+    },
+    background: {
+      default: figmaColors.background.default,
+      paper: figmaColors.background.paper
+    },
+    text: {
+      primary: figmaColors.text.primary,
+      secondary: figmaColors.text.secondary
+    }
+  },
+  
+  typography: {
+    fontFamily: figmaTypography.fontFamily.primary,
+    h1: {
+      fontFamily: figmaTypography.fontFamily.display,
+      fontSize: figmaTypography.fontSize['5xl'],
+      fontWeight: figmaTypography.fontWeight.bold,
+      lineHeight: figmaTypography.lineHeight.tight
+    },
+    h2: {
+      fontFamily: figmaTypography.fontFamily.display,
+      fontSize: figmaTypography.fontSize['4xl'],
+      fontWeight: figmaTypography.fontWeight.bold,
+      lineHeight: figmaTypography.lineHeight.tight
+    },
+    h3: {
+      fontSize: figmaTypography.fontSize['3xl'],
+      fontWeight: figmaTypography.fontWeight.semibold,
+      lineHeight: figmaTypography.lineHeight.normal
+    },
+    h4: {
+      fontSize: figmaTypography.fontSize['2xl'],
+      fontWeight: figmaTypography.fontWeight.semibold,
+      lineHeight: figmaTypography.lineHeight.normal
+    },
+    h5: {
+      fontSize: figmaTypography.fontSize.xl,
+      fontWeight: figmaTypography.fontWeight.medium,
+      lineHeight: figmaTypography.lineHeight.normal
+    },
+    h6: {
+      fontSize: figmaTypography.fontSize.lg,
+      fontWeight: figmaTypography.fontWeight.medium,
+      lineHeight: figmaTypography.lineHeight.normal
+    },
+    body1: {
+      fontSize: figmaTypography.fontSize.base,
+      fontWeight: figmaTypography.fontWeight.normal,
+      lineHeight: figmaTypography.lineHeight.normal
+    },
+    body2: {
+      fontSize: figmaTypography.fontSize.sm,
+      fontWeight: figmaTypography.fontWeight.normal,
+      lineHeight: figmaTypography.lineHeight.normal
+    },
+    caption: {
+      fontSize: figmaTypography.fontSize.xs,
+      fontWeight: figmaTypography.fontWeight.normal,
+      lineHeight: figmaTypography.lineHeight.normal
+    }
+  },
+  
+  spacing: figmaSpacing.unit,
+  
+  shape: {
+    borderRadius: 8 // 8px border radius from Figma
+  },
+  
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none', // Disable uppercase
+          borderRadius: 8,
+          fontWeight: figmaTypography.fontWeight.medium,
+          padding: figmaSpacing.component.buttonPadding.medium
+        }
+      }
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          padding: figmaSpacing.component.cardPadding,
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }
+      }
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8
+          }
+        }
+      }
+    }
+  }
+})
+```
+
+### 4. Component Mapping from Figma
+
+#### Button Components
+```javascript
+// src/components/mui/AppButtonComponent.jsx
+import React from 'react'
+import { Button as MuiButton } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppButtonComponent = ({ variant, size, children, ...props }) => {
+  return (
+    <MuiButton
+      variant={variant}
+      size={size}
+      sx={{
+        // Figma button styles
+        textTransform: 'none',
+        borderRadius: 2,
+        fontWeight: 500,
+        ...getButtonStyles(variant, size)
+      }}
+      {...props}
+    >
+      {children}
+    </MuiButton>
+  )
+}
+
+const getButtonStyles = (variant, size) => {
+  const baseStyles = {
+    borderRadius: 2,
+    fontWeight: 500
+  }
+  
+  const sizeStyles = {
+    small: { padding: '0.5rem 1rem', fontSize: '0.875rem' },
+    medium: { padding: '0.75rem 1.5rem', fontSize: '1rem' },
+    large: { padding: '1rem 2rem', fontSize: '1.125rem' }
+  }
+  
+  return {
+    ...baseStyles,
+    ...sizeStyles[size]
+  }
+}
+```
+
+#### Card Components
+```javascript
+// src/components/mui/AppCardComponent.jsx
+import React from 'react'
+import { Card as MuiCard, CardContent as MuiCardContent } from '@mui/material'
+import PropTypes from 'prop-types'
+
+const AppCardComponent = ({ elevation, children, ...props }) => {
+  return (
+    <MuiCard
+      elevation={elevation}
+      sx={{
+        // Figma card styles
+        borderRadius: 3,
+        padding: 2,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        transition: 'all 0.2s ease-in-out',
+        '&:hover': {
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+          transform: 'translateY(-2px)'
+        }
+      }}
+      {...props}
+    >
+      <MuiCardContent sx={{ padding: 0 }}>
+        {children}
+      </MuiCardContent>
+    </MuiCard>
+  )
+}
+```
+
+### 5. Figma Integration Checklist
+
+#### ✅ Design Token Extraction
+- [ ] Extract color palette from Figma
+- [ ] Extract typography scale and font families
+- [ ] Extract spacing system and measurements
+- [ ] Extract border radius and shadow values
+- [ ] Extract component specifications
+
+#### ✅ Theme Integration
+- [ ] Create MUI theme based on Figma tokens
+- [ ] Map Figma colors to MUI palette
+- [ ] Configure typography with Figma fonts
+- [ ] Set up spacing system
+- [ ] Configure component overrides
+
+#### ✅ Component Mapping
+- [ ] Map Figma components to MUI components
+- [ ] Create wrapper components for Figma designs
+- [ ] Implement Figma-specific styling
+- [ ] Ensure responsive behavior matches Figma
+- [ ] Test component variations
+
+#### ✅ Quality Assurance
+- [ ] Compare rendered components with Figma designs
+- [ ] Test on different screen sizes
+- [ ] Verify color accuracy
+- [ ] Check typography rendering
+- [ ] Validate spacing and layout
+
+### 6. Figma Plugin Integration
+```javascript
+// scripts/extract-figma-tokens.js
+// Use Figma API to extract design tokens
+const figmaApi = require('figma-api')
+
+const extractDesignTokens = async (figmaFileId, accessToken) => {
+  const api = new figmaApi.Api({ personalAccessToken: accessToken })
+  const file = await api.getFile(figmaFileId)
+  
+  // Extract colors
+  const colors = extractColors(file)
+  
+  // Extract typography
+  const typography = extractTypography(file)
+  
+  // Extract spacing
+  const spacing = extractSpacing(file)
+  
+  return {
+    colors,
+    typography,
+    spacing
+  }
+}
+```
+
+### 7. Usage Examples
+```javascript
+// src/App.jsx
+import { ThemeProvider } from '@mui/material/styles'
+import { figmaTheme } from 'theme/figmaTheme'
+import { AppButtonComponent } from 'components/mui/AppButtonComponent'
+
+const App = () => {
+  return (
+    <ThemeProvider theme={figmaTheme}>
+      <AppButtonComponent variant="contained" size="large">
+        Invest Now
+      </AppButtonComponent>
+    </ThemeProvider>
+  )
+}
+```

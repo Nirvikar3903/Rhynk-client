@@ -1,0 +1,677 @@
+# Create Form Workflow
+
+## Form Creation Checklist
+
+### 1. Form Setup Pattern
+- **Location**: `src/components/forms/FormName.jsx`
+- **Validation**: React Hook Form + Yup schema
+- **Styling**: MUI components with custom styling
+- **Schema**: `src/schemas/formNameSchema.js`
+
+### 2. Form Template
+```javascript
+// src/components/forms/InvestmentForm.jsx
+import React from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import * as yup from 'yup'
+import {
+  Box,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography,
+  Alert
+} from '@mui/material'
+
+// Validation schema
+const investmentSchema = yup.object({
+  amount: yup
+    .number()
+    .required('Investment amount is required')
+    .min(500, 'Minimum investment is ₹500')
+    .max(1000000, 'Maximum investment is ₹10,00,000'),
+  duration: yup
+    .number()
+    .required('Duration is required')
+    .min(1, 'Minimum duration is 1 month')
+    .max(60, 'Maximum duration is 60 months'),
+  riskProfile: yup
+    .string()
+    .required('Risk profile is required')
+    .oneOf(['conservative', 'moderate', 'aggressive'], 'Invalid risk profile'),
+  fundId: yup
+    .string()
+    .required('Please select a fund'),
+  startDate: yup
+    .date()
+    .required('Start date is required')
+    .min(new Date(), 'Start date cannot be in the past')
+})
+
+const InvestmentForm = ({ onSubmit, loading = false, selectedFund }) => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting, isValid },
+    watch,
+    setValue
+  } = useForm({
+    resolver: yupResolver(investmentSchema),
+    defaultValues: {
+      amount: '',
+      duration: 12,
+      riskProfile: 'moderate',
+      fundId: selectedFund?.id || '',
+      startDate: new Date().toISOString().split('T')[0]
+    }
+  })
+
+  const watchedAmount = watch('amount')
+  const watchedDuration = watch('duration')
+
+  const handleFormSubmit = async (data) => {
+    try {
+      await onSubmit(data)
+    } catch (error) {
+      console.error('Form submission error:', error)
+    }
+  }
+
+  return (
+    <Box component="form" onSubmit={handleSubmit(handleFormSubmit)}>
+      <Typography variant="h6" gutterBottom>
+        Investment Details
+      </Typography>
+      
+      {selectedFund && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Selected Fund: {selectedFund.name}
+        </Alert>
+      )}
+      
+      {/* Investment Amount */}
+      <Controller
+        name="amount"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Investment Amount (₹)"
+            type="number"
+            error={!!errors.amount}
+            helperText={errors.amount?.message}
+            fullWidth
+            margin="normal"
+            InputProps={{
+              startAdornment: <Typography>₹</Typography>
+            }}
+          />
+        )}
+      />
+
+      {/* Duration */}
+      <Controller
+        name="duration"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Duration (months)"
+            type="number"
+            error={!!errors.duration}
+            helperText={errors.duration?.message}
+            fullWidth
+            margin="normal"
+          />
+        )}
+      />
+
+      {/* Risk Profile */}
+      <Controller
+        name="riskProfile"
+        control={control}
+        render={({ field }) => (
+          <FormControl fullWidth margin="normal" error={!!errors.riskProfile}>
+            <InputLabel>Risk Profile</InputLabel>
+            <Select {...field} label="Risk Profile">
+              <MenuItem value="conservative">Conservative</MenuItem>
+              <MenuItem value="moderate">Moderate</MenuItem>
+              <MenuItem value="aggressive">Aggressive</MenuItem>
+            </Select>
+            {errors.riskProfile && (
+              <Typography variant="caption" color="error">
+                {errors.riskProfile.message}
+              </Typography>
+            )}
+          </FormControl>
+        )}
+      />
+
+      {/* Start Date */}
+      <Controller
+        name="startDate"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Start Date"
+            type="date"
+            error={!!errors.startDate}
+            helperText={errors.startDate?.message}
+            fullWidth
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+          />
+        )}
+      />
+
+      {/* Submit Button */}
+      <Button
+        type="submit"
+        variant="contained"
+        fullWidth
+        disabled={isSubmitting || loading || !isValid}
+        sx={{ mt: 3, mb: 2 }}
+      >
+        {isSubmitting || loading ? 'Processing...' : 'Create Investment'}
+      </Button>
+    </Box>
+  )
+}
+
+export default InvestmentForm
+```
+
+### 3. Financial Form Examples
+
+#### KYC Form
+```javascript
+// src/components/forms/KYCForm.jsx
+import React from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import { kycSchema } from 'schemas/kycSchema'
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Stepper,
+  Step,
+  StepLabel,
+  Grid
+} from '@mui/material'
+
+const KYCForm = ({ control, errors, onNext, isValid }) => {
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom>
+        Personal Information
+      </Typography>
+      
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="personalDetails.firstName"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="First Name"
+                error={!!errors.personalDetails?.firstName}
+                helperText={errors.personalDetails?.firstName?.message}
+                fullWidth
+                required
+              />
+            )}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="personalDetails.lastName"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Last Name"
+                error={!!errors.personalDetails?.lastName}
+                helperText={errors.personalDetails?.lastName?.message}
+                fullWidth
+                required
+              />
+            )}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="personalDetails.dateOfBirth"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Date of Birth"
+                type="date"
+                error={!!errors.personalDetails?.dateOfBirth}
+                helperText={errors.personalDetails?.dateOfBirth?.message}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="personalDetails.panNumber"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="PAN Number"
+                error={!!errors.personalDetails?.panNumber}
+                helperText={errors.personalDetails?.panNumber?.message}
+                fullWidth
+                required
+                placeholder="ABCDE1234F"
+              />
+            )}
+          />
+        </Grid>
+      </Grid>
+      
+      <Button
+        variant="contained"
+        onClick={onNext}
+        disabled={!isValid}
+        sx={{ mt: 3 }}
+      >
+        Next
+      </Button>
+    </Box>
+  )
+}
+
+export default KYCForm
+```
+
+#### SIP Order Form
+```javascript
+// src/components/forms/SIPOrderForm.jsx
+import React from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import { sipOrderSchema } from 'schemas/sipOrderSchema'
+import {
+  Box,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Typography,
+  Alert,
+  FormControlLabel,
+  Checkbox
+} from '@mui/material'
+
+const SIPOrderForm = ({ onSubmit, loading = false, selectedFund }) => {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch
+  } = useForm({
+    resolver: yupResolver(sipOrderSchema),
+    defaultValues: {
+      fundId: selectedFund?.id || '',
+      amount: '',
+      frequency: 'monthly',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      autoDebit: true,
+      bankAccountId: ''
+    }
+  })
+
+  const autoDebit = watch('autoDebit')
+
+  return (
+    <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+      <Typography variant="h6" gutterBottom>
+        SIP Order Details
+      </Typography>
+      
+      {selectedFund && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Fund: {selectedFund.name} (NAV: ₹{selectedFund.nav})
+        </Alert>
+      )}
+      
+      {/* SIP Amount */}
+      <Controller
+        name="amount"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="SIP Amount (₹)"
+            type="number"
+            error={!!errors.amount}
+            helperText={errors.amount?.message}
+            fullWidth
+            margin="normal"
+            InputProps={{
+              startAdornment: <Typography>₹</Typography>
+            }}
+          />
+        )}
+      />
+
+      {/* Frequency */}
+      <Controller
+        name="frequency"
+        control={control}
+        render={({ field }) => (
+          <FormControl fullWidth margin="normal" error={!!errors.frequency}>
+            <InputLabel>SIP Frequency</InputLabel>
+            <Select {...field} label="SIP Frequency">
+              <MenuItem value="monthly">Monthly</MenuItem>
+              <MenuItem value="quarterly">Quarterly</MenuItem>
+              <MenuItem value="yearly">Yearly</MenuItem>
+            </Select>
+            {errors.frequency && (
+              <Typography variant="caption" color="error">
+                {errors.frequency.message}
+              </Typography>
+            )}
+          </FormControl>
+        )}
+      />
+
+      {/* Start Date */}
+      <Controller
+        name="startDate"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="Start Date"
+            type="date"
+            error={!!errors.startDate}
+            helperText={errors.startDate?.message}
+            fullWidth
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+          />
+        )}
+      />
+
+      {/* End Date */}
+      <Controller
+        name="endDate"
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            label="End Date (Optional)"
+            type="date"
+            error={!!errors.endDate}
+            helperText={errors.endDate?.message}
+            fullWidth
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+          />
+        )}
+      />
+
+      {/* Auto Debit */}
+      <Controller
+        name="autoDebit"
+        control={control}
+        render={({ field }) => (
+          <FormControlLabel
+            control={
+              <Checkbox
+                {...field}
+                checked={field.value}
+              />
+            }
+            label="Enable Auto Debit"
+          />
+        )}
+      />
+
+      {/* Bank Account (conditional) */}
+      {autoDebit && (
+        <Controller
+          name="bankAccountId"
+          control={control}
+          render={({ field }) => (
+            <FormControl fullWidth margin="normal" error={!!errors.bankAccountId}>
+              <InputLabel>Bank Account</InputLabel>
+              <Select {...field} label="Bank Account">
+                {/* Bank accounts will be populated from API */}
+                <MenuItem value="account1">HDFC Bank - ****1234</MenuItem>
+                <MenuItem value="account2">ICICI Bank - ****5678</MenuItem>
+              </Select>
+              {errors.bankAccountId && (
+                <Typography variant="caption" color="error">
+                  {errors.bankAccountId.message}
+                </Typography>
+              )}
+            </FormControl>
+          )}
+        />
+      )}
+
+      {/* Submit Button */}
+      <Button
+        type="submit"
+        variant="contained"
+        fullWidth
+        disabled={isSubmitting || loading}
+        sx={{ mt: 3, mb: 2 }}
+      >
+        {isSubmitting || loading ? 'Creating SIP...' : 'Create SIP Order'}
+      </Button>
+    </Box>
+  )
+}
+
+export default SIPOrderForm
+```
+
+### 4. Validation Schema Examples
+
+#### Investment Schema
+```javascript
+// src/schemas/investmentSchema.js
+import * as yup from 'yup'
+
+export const investmentSchema = yup.object({
+  amount: yup
+    .number()
+    .required('Investment amount is required')
+    .min(500, 'Minimum investment is ₹500')
+    .max(1000000, 'Maximum investment is ₹10,00,000'),
+  duration: yup
+    .number()
+    .required('Duration is required')
+    .min(1, 'Minimum duration is 1 month')
+    .max(60, 'Maximum duration is 60 months'),
+  riskProfile: yup
+    .string()
+    .required('Risk profile is required')
+    .oneOf(['conservative', 'moderate', 'aggressive'], 'Invalid risk profile'),
+  fundId: yup
+    .string()
+    .required('Please select a fund'),
+  startDate: yup
+    .date()
+    .required('Start date is required')
+    .min(new Date(), 'Start date cannot be in the past')
+})
+```
+
+#### KYC Schema
+```javascript
+// src/schemas/kycSchema.js
+import * as yup from 'yup'
+
+export const kycSchema = yup.object({
+  personalDetails: yup.object({
+    firstName: yup
+      .string()
+      .required('First name is required')
+      .min(2, 'First name must be at least 2 characters')
+      .max(50, 'First name must be less than 50 characters'),
+    lastName: yup
+      .string()
+      .required('Last name is required')
+      .min(2, 'Last name must be at least 2 characters')
+      .max(50, 'Last name must be less than 50 characters'),
+    dateOfBirth: yup
+      .date()
+      .required('Date of birth is required')
+      .max(new Date(), 'Date of birth cannot be in the future'),
+    panNumber: yup
+      .string()
+      .required('PAN number is required')
+      .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format'),
+    aadhaarNumber: yup
+      .string()
+      .required('Aadhaar number is required')
+      .matches(/^[0-9]{12}$/, 'Aadhaar number must be 12 digits')
+  }),
+  address: yup.object({
+    line1: yup.string().required('Address line 1 is required'),
+    line2: yup.string(),
+    city: yup.string().required('City is required'),
+    state: yup.string().required('State is required'),
+    pincode: yup
+      .string()
+      .required('Pincode is required')
+      .matches(/^[0-9]{6}$/, 'Pincode must be 6 digits'),
+    country: yup.string().default('India')
+  }),
+  bankDetails: yup.object({
+    accountNumber: yup
+      .string()
+      .required('Account number is required')
+      .min(9, 'Account number must be at least 9 digits')
+      .max(18, 'Account number must be less than 18 digits'),
+    ifscCode: yup
+      .string()
+      .required('IFSC code is required')
+      .matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, 'Invalid IFSC code format'),
+    accountHolderName: yup
+      .string()
+      .required('Account holder name is required')
+  })
+})
+```
+
+### 5. Form Requirements Checklist
+
+#### ✅ Basic Requirements
+- [ ] Use React Hook Form for form management
+- [ ] Include Yup validation schema
+- [ ] Use Controller for MUI components
+- [ ] Add proper error handling and display
+- [ ] Include loading states during submission
+- [ ] Disable submit button when form is invalid
+
+#### ✅ Financial Form Specific
+- [ ] Use currency formatting for monetary inputs
+- [ ] Include proper validation for financial data
+- [ ] Add clear error messages for validation failures
+- [ ] Include confirmation steps for critical actions
+- [ ] Add data masking for sensitive information
+
+#### ✅ User Experience
+- [ ] Provide clear field labels and placeholders
+- [ ] Include helpful text and examples
+- [ ] Add progress indicators for multi-step forms
+- [ ] Include save draft functionality where appropriate
+- [ ] Add form reset functionality
+- [ ] Use MUI SX prop for all styling needs
+
+#### ✅ Accessibility
+- [ ] Include proper ARIA labels
+- [ ] Ensure keyboard navigation works
+- [ ] Add screen reader support
+- [ ] Include proper focus management
+- [ ] Test with accessibility tools
+
+### 6. Testing Template
+```javascript
+// src/components/forms/__tests__/InvestmentForm.test.jsx
+import React from 'react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import InvestmentForm from '../InvestmentForm'
+
+describe('InvestmentForm', () => {
+  it('validates required fields', async () => {
+    const user = userEvent.setup()
+    const mockSubmit = jest.fn()
+    
+    render(<InvestmentForm onSubmit={mockSubmit} />)
+    
+    const submitButton = screen.getByRole('button', { name: /create investment/i })
+    await user.click(submitButton)
+    
+    expect(screen.getByText('Investment amount is required')).toBeInTheDocument()
+    expect(screen.getByText('Duration is required')).toBeInTheDocument()
+    expect(mockSubmit).not.toHaveBeenCalled()
+  })
+
+  it('submits form with valid data', async () => {
+    const user = userEvent.setup()
+    const mockSubmit = jest.fn()
+    
+    render(<InvestmentForm onSubmit={mockSubmit} />)
+    
+    await user.type(screen.getByLabelText(/investment amount/i), '10000')
+    await user.type(screen.getByLabelText(/duration/i), '12')
+    await user.selectOptions(screen.getByLabelText(/risk profile/i), 'moderate')
+    
+    const submitButton = screen.getByRole('button', { name: /create investment/i })
+    await user.click(submitButton)
+    
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledWith({
+        amount: 10000,
+        duration: 12,
+        riskProfile: 'moderate',
+        fundId: '',
+        startDate: expect.any(String)
+      })
+    })
+  })
+
+  it('shows loading state during submission', async () => {
+    const user = userEvent.setup()
+    const mockSubmit = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)))
+    
+    render(<InvestmentForm onSubmit={mockSubmit} />)
+    
+    await user.type(screen.getByLabelText(/investment amount/i), '10000')
+    await user.type(screen.getByLabelText(/duration/i), '12')
+    
+    const submitButton = screen.getByRole('button', { name: /create investment/i })
+    await user.click(submitButton)
+    
+    expect(screen.getByText('Processing...')).toBeInTheDocument()
+    expect(submitButton).toBeDisabled()
+  })
+})
+```

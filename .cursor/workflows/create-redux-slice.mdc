@@ -1,0 +1,918 @@
+# Create Redux Slice Workflow
+
+## Redux Slice Creation Checklist
+
+### 1. File Structure
+- **Location**: `src/store/slices/`
+- **Naming**: camelCase with `.slice.js` suffix
+- **Example**: `user.slice.js`, `investment.slice.js`
+- **Pattern**: Each slice manages its own persistence
+- **Export**: Named exports for actions and selectors, default export for reducer
+
+### 2. Slice Template
+```javascript
+// src/store/slices/investmentSlice.js
+import { createSlice, createSelector } from '@reduxjs/toolkit'
+
+const initialState = {
+  funds: [],
+  selectedFund: null,
+  portfolio: [],
+  watchlist: [],
+  loading: false,
+  error: null,
+  lastUpdated: null
+}
+
+const investmentSlice = createSlice({
+  name: 'investment',
+  initialState,
+  reducers: {
+    // Fund actions
+    setFunds: (state, action) => {
+      state.funds = action.payload
+      state.lastUpdated = new Date().toISOString()
+    },
+    
+    setSelectedFund: (state, action) => {
+      state.selectedFund = action.payload
+    },
+    
+    updateFund: (state, action) => {
+      const { id, updates } = action.payload
+      const fundIndex = state.funds.findIndex(fund => fund.id === id)
+      if (fundIndex !== -1) {
+        state.funds[fundIndex] = { ...state.funds[fundIndex], ...updates }
+      }
+    },
+    
+    // Portfolio actions
+    setPortfolio: (state, action) => {
+      state.portfolio = action.payload
+    },
+    
+    addToPortfolio: (state, action) => {
+      state.portfolio.push(action.payload)
+    },
+    
+    updatePortfolioItem: (state, action) => {
+      const { id, updates } = action.payload
+      const itemIndex = state.portfolio.findIndex(item => item.id === id)
+      if (itemIndex !== -1) {
+        state.portfolio[itemIndex] = { ...state.portfolio[itemIndex], ...updates }
+      }
+    },
+    
+    removeFromPortfolio: (state, action) => {
+      state.portfolio = state.portfolio.filter(item => item.id !== action.payload)
+    },
+    
+    // Watchlist actions
+    addToWatchlist: (state, action) => {
+      const fundId = action.payload
+      if (!state.watchlist.includes(fundId)) {
+        state.watchlist.push(fundId)
+      }
+    },
+    
+    removeFromWatchlist: (state, action) => {
+      const fundId = action.payload
+      state.watchlist = state.watchlist.filter(id => id !== fundId)
+    },
+    
+    // Loading and error actions
+    setLoading: (state, action) => {
+      state.loading = action.payload
+    },
+    
+    setError: (state, action) => {
+      state.error = action.payload
+    },
+    
+    clearError: (state) => {
+      state.error = null
+    },
+    
+    // Reset actions
+    resetInvestment: () => initialState,
+    
+    resetPortfolio: (state) => {
+      state.portfolio = []
+    }
+  }
+})
+
+// Export actions
+export const {
+  setFunds,
+  setSelectedFund,
+  updateFund,
+  setPortfolio,
+  addToPortfolio,
+  updatePortfolioItem,
+  removeFromPortfolio,
+  addToWatchlist,
+  removeFromWatchlist,
+  setLoading,
+  setError,
+  clearError,
+  resetInvestment,
+  resetPortfolio
+} = investmentSlice.actions
+
+// Basic selectors
+export const selectFunds = (state) => state.investment.funds
+export const selectSelectedFund = (state) => state.investment.selectedFund
+export const selectPortfolio = (state) => state.investment.portfolio
+export const selectWatchlist = (state) => state.investment.watchlist
+export const selectInvestmentLoading = (state) => state.investment.loading
+export const selectInvestmentError = (state) => state.investment.error
+export const selectLastUpdated = (state) => state.investment.lastUpdated
+
+// Memoized selectors
+export const selectFundsByCategory = createSelector(
+  [selectFunds, (state, category) => category],
+  (funds, category) => funds.filter(fund => fund.category === category)
+)
+
+export const selectFundsByRiskLevel = createSelector(
+  [selectFunds, (state, riskLevel) => riskLevel],
+  (funds, riskLevel) => funds.filter(fund => fund.riskLevel === riskLevel)
+)
+
+export const selectWatchlistFunds = createSelector(
+  [selectFunds, selectWatchlist],
+  (funds, watchlist) => funds.filter(fund => watchlist.includes(fund.id))
+)
+
+export const selectPortfolioValue = createSelector(
+  [selectPortfolio],
+  (portfolio) => {
+    return portfolio.reduce((total, item) => {
+      return total + (item.units * item.currentPrice)
+    }, 0)
+  }
+)
+
+export const selectPortfolioGain = createSelector(
+  [selectPortfolio],
+  (portfolio) => {
+    const totalValue = portfolio.reduce((total, item) => {
+      return total + (item.units * item.currentPrice)
+    }, 0)
+    
+    const totalInvested = portfolio.reduce((total, item) => {
+      return total + item.investedAmount
+    }, 0)
+    
+    return totalValue - totalInvested
+  }
+)
+
+export const selectPortfolioGainPercentage = createSelector(
+  [selectPortfolioValue, selectPortfolioGain],
+  (totalValue, totalGain) => {
+    const totalInvested = totalValue - totalGain
+    return totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0
+  }
+)
+
+export const selectTopPerformingFund = createSelector(
+  [selectPortfolio],
+  (portfolio) => {
+    if (!portfolio.length) return null
+    
+    return portfolio.reduce((top, item) => {
+      const gain = (item.currentPrice - item.averagePrice) / item.averagePrice
+      const topGain = top ? (top.currentPrice - top.averagePrice) / top.averagePrice : -1
+      return gain > topGain ? item : top
+    }, null)
+  }
+)
+
+export default investmentSlice.reducer
+```
+
+### 3. Financial Slice Examples
+
+#### User Slice
+```javascript
+// src/store/slices/userSlice.js
+import { createSlice, createSelector } from '@reduxjs/toolkit'
+
+const initialState = {
+  profile: null,
+  isAuthenticated: false,
+  preferences: {
+    theme: 'light',
+    currency: 'INR',
+    notifications: {
+      email: true,
+      sms: false,
+      push: true
+    }
+  },
+  kycStatus: 'pending', // pending, verified, rejected
+  bankAccounts: [],
+  loading: false,
+  error: null
+}
+
+const userSlice = createSlice({
+  name: 'user',
+  initialState,
+  reducers: {
+    setUser: (state, action) => {
+      state.profile = action.payload
+      state.isAuthenticated = true
+    },
+    
+    clearUser: (state) => {
+      state.profile = null
+      state.isAuthenticated = false
+      state.kycStatus = 'pending'
+      state.bankAccounts = []
+    },
+    
+    updateProfile: (state, action) => {
+      state.profile = { ...state.profile, ...action.payload }
+    },
+    
+    setKYCStatus: (state, action) => {
+      state.kycStatus = action.payload
+    },
+    
+    setBankAccounts: (state, action) => {
+      state.bankAccounts = action.payload
+    },
+    
+    addBankAccount: (state, action) => {
+      state.bankAccounts.push(action.payload)
+    },
+    
+    updatePreferences: (state, action) => {
+      state.preferences = { ...state.preferences, ...action.payload }
+    },
+    
+    setLoading: (state, action) => {
+      state.loading = action.payload
+    },
+    
+    setError: (state, action) => {
+      state.error = action.payload
+    },
+    
+    clearError: (state) => {
+      state.error = null
+    }
+  }
+})
+
+export const {
+  setUser,
+  clearUser,
+  updateProfile,
+  setKYCStatus,
+  setBankAccounts,
+  addBankAccount,
+  updatePreferences,
+  setLoading,
+  setError,
+  clearError
+} = userSlice.actions
+
+// Selectors
+export const selectUser = (state) => state.user.profile
+export const selectIsAuthenticated = (state) => state.user.isAuthenticated
+export const selectUserPreferences = (state) => state.user.preferences
+export const selectKYCStatus = (state) => state.user.kycStatus
+export const selectBankAccounts = (state) => state.user.bankAccounts
+export const selectUserLoading = (state) => state.user.loading
+export const selectUserError = (state) => state.user.error
+
+// Memoized selectors
+export const selectUserFullName = createSelector(
+  [selectUser],
+  (user) => user ? `${user.firstName} ${user.lastName}` : ''
+)
+
+export const selectIsKYCVerified = createSelector(
+  [selectKYCStatus],
+  (status) => status === 'verified'
+)
+
+export const selectDefaultBankAccount = createSelector(
+  [selectBankAccounts],
+  (accounts) => accounts.find(account => account.isDefault) || accounts[0]
+)
+
+export default userSlice.reducer
+```
+
+#### Transaction Slice
+```javascript
+// src/store/slices/transactionSlice.js
+import { createSlice, createSelector } from '@reduxjs/toolkit'
+
+const initialState = {
+  transactions: [],
+  filters: {
+    type: 'all', // all, sip, lumpsum, redemption
+    status: 'all', // all, pending, completed, failed
+    dateRange: {
+      start: null,
+      end: null
+    }
+  },
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 0
+  },
+  loading: false,
+  error: null
+}
+
+const transactionSlice = createSlice({
+  name: 'transaction',
+  initialState,
+  reducers: {
+    setTransactions: (state, action) => {
+      state.transactions = action.payload
+    },
+    
+    addTransaction: (state, action) => {
+      state.transactions.unshift(action.payload)
+    },
+    
+    updateTransaction: (state, action) => {
+      const { id, updates } = action.payload
+      const index = state.transactions.findIndex(tx => tx.id === id)
+      if (index !== -1) {
+        state.transactions[index] = { ...state.transactions[index], ...updates }
+      }
+    },
+    
+    setFilters: (state, action) => {
+      state.filters = { ...state.filters, ...action.payload }
+    },
+    
+    setPagination: (state, action) => {
+      state.pagination = { ...state.pagination, ...action.payload }
+    },
+    
+    setLoading: (state, action) => {
+      state.loading = action.payload
+    },
+    
+    setError: (state, action) => {
+      state.error = action.payload
+    },
+    
+    clearError: (state) => {
+      state.error = null
+    }
+  }
+})
+
+export const {
+  setTransactions,
+  addTransaction,
+  updateTransaction,
+  setFilters,
+  setPagination,
+  setLoading,
+  setError,
+  clearError
+} = transactionSlice.actions
+
+// Selectors
+export const selectTransactions = (state) => state.transaction.transactions
+export const selectTransactionFilters = (state) => state.transaction.filters
+export const selectTransactionPagination = (state) => state.transaction.pagination
+export const selectTransactionLoading = (state) => state.transaction.loading
+export const selectTransactionError = (state) => state.transaction.error
+
+// Memoized selectors
+export const selectFilteredTransactions = createSelector(
+  [selectTransactions, selectTransactionFilters],
+  (transactions, filters) => {
+    return transactions.filter(transaction => {
+      if (filters.type !== 'all' && transaction.type !== filters.type) {
+        return false
+      }
+      
+      if (filters.status !== 'all' && transaction.status !== filters.status) {
+        return false
+      }
+      
+      if (filters.dateRange.start && new Date(transaction.date) < new Date(filters.dateRange.start)) {
+        return false
+      }
+      
+      if (filters.dateRange.end && new Date(transaction.date) > new Date(filters.dateRange.end)) {
+        return false
+      }
+      
+      return true
+    })
+  }
+)
+
+export const selectTransactionStats = createSelector(
+  [selectFilteredTransactions],
+  (transactions) => {
+    const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0)
+    const sipCount = transactions.filter(tx => tx.type === 'sip').length
+    const lumpsumCount = transactions.filter(tx => tx.type === 'lumpsum').length
+    const redemptionCount = transactions.filter(tx => tx.type === 'redemption').length
+    
+    return {
+      totalAmount,
+      sipCount,
+      lumpsumCount,
+      redemptionCount,
+      totalCount: transactions.length
+    }
+  }
+)
+
+export default transactionSlice.reducer
+```
+
+### 4. Redux Persist Configuration
+
+#### Basic Persist Setup
+```javascript
+// src/store/index.js
+import { configureStore } from '@reduxjs/toolkit'
+import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist'
+import storage from 'redux-persist/lib/storage'
+import { combineReducers } from '@reduxjs/toolkit'
+
+import userReducer from './slices/userSlice'
+import investmentReducer from './slices/investmentSlice'
+import transactionReducer from './slices/transactionSlice'
+import { baseApi } from './api/baseApi'
+
+// Root persist configuration
+const persistConfig = {
+  key: 'root',
+  storage,
+  whitelist: ['user', 'investment'] // Only persist these slices
+}
+
+const rootReducer = combineReducers({
+  [baseApi.reducerPath]: baseApi.reducer,
+  user: userReducer,
+  investment: investmentReducer,
+  transaction: transactionReducer
+})
+
+const persistedReducer = persistReducer(persistConfig, rootReducer)
+
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
+      }
+    }).concat(baseApi.middleware)
+})
+
+export const persistor = persistStore(store)
+```
+
+#### Selective Persistence
+```javascript
+// src/store/persistConfig.js
+import storage from 'redux-persist/lib/storage'
+import { persistReducer } from 'redux-persist'
+
+// User slice persist config
+export const userPersistConfig = {
+  key: 'user',
+  storage,
+  whitelist: ['profile', 'preferences'], // Don't persist tokens
+  blacklist: ['loading', 'error'] // Don't persist loading states
+}
+
+// Investment slice persist config
+export const investmentPersistConfig = {
+  key: 'investment',
+  storage,
+  whitelist: ['portfolio', 'watchlist'], // Persist user data
+  blacklist: ['loading', 'error', 'lastUpdated'] // Don't persist UI state
+}
+
+// Transaction slice persist config (no persistence)
+export const transactionPersistConfig = {
+  key: 'transaction',
+  storage,
+  whitelist: [] // Don't persist transaction data
+}
+
+// Apply persist configs
+export const persistedUserReducer = persistReducer(userPersistConfig, userReducer)
+export const persistedInvestmentReducer = persistReducer(investmentPersistConfig, investmentReducer)
+export const persistedTransactionReducer = persistReducer(transactionPersistConfig, transactionReducer)
+```
+
+#### Advanced Persist Configuration
+```javascript
+// src/store/advancedPersistConfig.js
+import storage from 'redux-persist/lib/storage'
+import { persistReducer, createTransform } from 'redux-persist'
+
+// Transform for sensitive data
+const encryptTransform = createTransform(
+  // Transform state on its way to being serialized and persisted
+  (inboundState, key) => {
+    if (key === 'user' && inboundState.profile) {
+      // Encrypt sensitive user data
+      return {
+        ...inboundState,
+        profile: {
+          ...inboundState.profile,
+          // Don't persist sensitive fields
+          ssn: undefined,
+          bankDetails: undefined
+        }
+      }
+    }
+    return inboundState
+  },
+  // Transform state being rehydrated
+  (outboundState, key) => {
+    return outboundState
+  },
+  // Define which reducers this transform runs on
+  { whitelist: ['user'] }
+)
+
+// Financial data persist config with transforms
+export const financialPersistConfig = {
+  key: 'financial',
+  storage,
+  whitelist: ['portfolio', 'watchlist'],
+  transforms: [encryptTransform],
+  // Persist only specific fields
+  stateReconciler: (inboundState, originalState, reducedState) => {
+    return {
+      ...reducedState,
+      portfolio: inboundState.portfolio || [],
+      watchlist: inboundState.watchlist || []
+    }
+  }
+}
+
+// Time-based persistence (expire after 7 days)
+export const timeBasedPersistConfig = {
+  key: 'user',
+  storage,
+  whitelist: ['preferences'],
+  // Custom storage with expiration
+  storage: {
+    ...storage,
+    getItem: (key) => {
+      const item = storage.getItem(key)
+      if (!item) return null
+      
+      const parsed = JSON.parse(item)
+      const now = new Date().getTime()
+      
+      if (parsed.timestamp && now - parsed.timestamp > 7 * 24 * 60 * 60 * 1000) {
+        storage.removeItem(key)
+        return null
+      }
+      
+      return item
+    },
+    setItem: (key, value) => {
+      const item = {
+        ...JSON.parse(value),
+        timestamp: new Date().getTime()
+      }
+      storage.setItem(key, JSON.stringify(item))
+    }
+  }
+}
+```
+
+#### Persist with Migration
+```javascript
+// src/store/migrations.js
+import { createMigrate } from 'redux-persist'
+
+// Define migrations for version updates
+const migrations = {
+  0: (state) => {
+    // Migration from version 0 to 1
+    return {
+      ...state,
+      user: {
+        ...state.user,
+        // Add new field with default value
+        preferences: {
+          theme: 'light',
+          currency: 'INR',
+          ...state.user.preferences
+        }
+      }
+    }
+  },
+  1: (state) => {
+    // Migration from version 1 to 2
+    return {
+      ...state,
+      investment: {
+        ...state.investment,
+        // Rename field
+        watchlist: state.investment.favoriteFunds || []
+      }
+    }
+  }
+}
+
+// Persist config with migrations
+export const migrationPersistConfig = {
+  key: 'root',
+  version: 2, // Current version
+  storage,
+  migrate: createMigrate(migrations, { debug: process.env.NODE_ENV === 'development' }),
+  whitelist: ['user', 'investment']
+}
+```
+
+#### Persist with Custom Storage
+```javascript
+// src/store/customStorage.js
+import { createTransform } from 'redux-persist'
+
+// Custom storage for different data types
+export const createCustomStorage = () => {
+  const memoryStorage = {}
+  
+  return {
+    getItem: (key) => {
+      return new Promise((resolve) => {
+        // Check localStorage first
+        const item = localStorage.getItem(key)
+        if (item) {
+          resolve(item)
+          return
+        }
+        
+        // Check memory storage
+        const memoryItem = memoryStorage[key]
+        if (memoryItem) {
+          resolve(JSON.stringify(memoryItem))
+          return
+        }
+        
+        resolve(null)
+      })
+    },
+    
+    setItem: (key, value) => {
+      return new Promise((resolve) => {
+        try {
+          const parsed = JSON.parse(value)
+          
+          // Store sensitive data in memory only
+          if (key.includes('auth') || key.includes('token')) {
+            memoryStorage[key] = parsed
+          } else {
+            localStorage.setItem(key, value)
+          }
+          
+          resolve()
+        } catch (error) {
+          console.error('Storage setItem error:', error)
+          resolve()
+        }
+      })
+    },
+    
+    removeItem: (key) => {
+      return new Promise((resolve) => {
+        localStorage.removeItem(key)
+        delete memoryStorage[key]
+        resolve()
+      })
+    }
+  }
+}
+
+// Use custom storage
+export const customStoragePersistConfig = {
+  key: 'root',
+  storage: createCustomStorage(),
+  whitelist: ['user', 'investment']
+}
+```
+
+### 5. Financial App Persist Example
+```javascript
+// src/store/financialPersistConfig.js
+import storage from 'redux-persist/lib/storage'
+import { persistReducer, createTransform } from 'redux-persist'
+import { encrypt, decrypt } from 'utils/cryptoService'
+
+// Transform for encrypting sensitive financial data
+const financialDataTransform = createTransform(
+  // Outbound: encrypt data before storing
+  (inboundState, key) => {
+    if (key === 'investment' && inboundState.portfolio) {
+      return {
+        ...inboundState,
+        portfolio: inboundState.portfolio.map(item => ({
+          ...item,
+          // Encrypt sensitive financial data
+          investedAmount: encrypt(item.investedAmount.toString()),
+          currentValue: encrypt(item.currentValue.toString())
+        }))
+      }
+    }
+    return inboundState
+  },
+  // Inbound: decrypt data when rehydrating
+  (outboundState, key) => {
+    if (key === 'investment' && outboundState.portfolio) {
+      return {
+        ...outboundState,
+        portfolio: outboundState.portfolio.map(item => ({
+          ...item,
+          // Decrypt sensitive financial data
+          investedAmount: parseFloat(decrypt(item.investedAmount)),
+          currentValue: parseFloat(decrypt(item.currentValue))
+        }))
+      }
+    }
+    return outboundState
+  },
+  { whitelist: ['investment'] }
+)
+
+// Financial app persist configuration
+export const financialAppPersistConfig = {
+  key: 'financial-app',
+  storage,
+  whitelist: ['user', 'investment'],
+  blacklist: ['transaction'], // Don't persist transaction history
+  transforms: [financialDataTransform],
+  // Custom state reconciler for financial data
+  stateReconciler: (inboundState, originalState, reducedState) => {
+    return {
+      ...reducedState,
+      user: {
+        ...reducedState.user,
+        // Only persist non-sensitive user data
+        profile: {
+          firstName: inboundState.user?.profile?.firstName,
+          lastName: inboundState.user?.profile?.lastName,
+          email: inboundState.user?.profile?.email,
+          // Don't persist sensitive fields
+          ssn: undefined,
+          bankDetails: undefined
+        },
+        preferences: inboundState.user?.preferences || {}
+      },
+      investment: {
+        ...reducedState.investment,
+        portfolio: inboundState.investment?.portfolio || [],
+        watchlist: inboundState.investment?.watchlist || [],
+        // Don't persist loading states
+        loading: false,
+        error: null
+      }
+    }
+  }
+}
+
+// Usage in store configuration
+import { financialAppPersistConfig } from './financialPersistConfig'
+
+const persistedReducer = persistReducer(financialAppPersistConfig, rootReducer)
+```
+
+### 6. Slice Requirements Checklist
+
+#### ✅ Basic Requirements
+- [ ] Use createSlice from Redux Toolkit
+- [ ] Define clear initial state
+- [ ] Create meaningful action names
+- [ ] Use Immer for immutable updates
+- [ ] Export actions and selectors
+- [ ] Include loading and error states
+
+#### ✅ Financial App Specific
+- [ ] Include proper data normalization
+- [ ] Add financial calculations in selectors
+- [ ] Include proper error handling
+- [ ] Add data validation where needed
+- [ ] Include audit trail for critical actions
+
+#### ✅ Redux Persist Integration
+- [ ] Configure selective persistence (whitelist/blacklist)
+- [ ] Don't persist sensitive data (tokens, auth state)
+- [ ] Don't persist UI state (loading, errors)
+- [ ] Use transforms for data encryption/decryption
+- [ ] Include migration strategies for state updates
+- [ ] Consider custom storage for sensitive data
+
+#### ✅ Performance
+- [ ] Use createSelector for memoized selectors
+- [ ] Avoid unnecessary re-renders
+- [ ] Include proper data structure for lookups
+- [ ] Use normalized state for complex data
+
+### 6. Testing Template
+```javascript
+// src/store/slices/__tests__/investmentSlice.test.js
+import investmentReducer, {
+  setFunds,
+  setSelectedFund,
+  addToPortfolio,
+  selectPortfolioValue
+} from '../investmentSlice'
+
+describe('investmentSlice', () => {
+  const initialState = {
+    funds: [],
+    selectedFund: null,
+    portfolio: [],
+    watchlist: [],
+    loading: false,
+    error: null,
+    lastUpdated: null
+  }
+
+  it('should handle initial state', () => {
+    expect(investmentReducer(undefined, {})).toEqual(initialState)
+  })
+
+  it('should handle setFunds', () => {
+    const funds = [
+      { id: '1', name: 'Fund 1', nav: 100 },
+      { id: '2', name: 'Fund 2', nav: 200 }
+    ]
+    
+    const actual = investmentReducer(initialState, setFunds(funds))
+    expect(actual.funds).toEqual(funds)
+    expect(actual.lastUpdated).toBeDefined()
+  })
+
+  it('should handle setSelectedFund', () => {
+    const fund = { id: '1', name: 'Fund 1', nav: 100 }
+    const actual = investmentReducer(initialState, setSelectedFund(fund))
+    expect(actual.selectedFund).toEqual(fund)
+  })
+
+  it('should handle addToPortfolio', () => {
+    const portfolioItem = {
+      id: '1',
+      fundId: 'fund1',
+      units: 100,
+      averagePrice: 50,
+      currentPrice: 60
+    }
+    
+    const actual = investmentReducer(initialState, addToPortfolio(portfolioItem))
+    expect(actual.portfolio).toContain(portfolioItem)
+  })
+
+  it('should calculate portfolio value correctly', () => {
+    const state = {
+      investment: {
+        portfolio: [
+          { units: 100, currentPrice: 60 },
+          { units: 200, currentPrice: 30 }
+        ]
+      }
+    }
+    
+    const result = selectPortfolioValue(state)
+    expect(result).toBe(12000) // (100 * 60) + (200 * 30)
+  })
+})
+```
+
+### 7. Common Slice Patterns
+
+#### Data Management Slices
+- `fundSlice` - Fund data management
+- `portfolioSlice` - Portfolio management
+- `transactionSlice` - Transaction history
+- `marketDataSlice` - Real-time market data
+
+#### User Management Slices
+- `userSlice` - User profile and authentication
+- `preferencesSlice` - User preferences
+- `kycSlice` - KYC status and documents
+
+#### UI State Slices
+- `uiSlice` - UI state management
+- `modalSlice` - Modal state management
+- `notificationSlice` - Notification management

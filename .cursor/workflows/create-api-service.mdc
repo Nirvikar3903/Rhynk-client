@@ -1,0 +1,544 @@
+# Create API Service Workflow
+
+## RTK Query Service Creation Checklist
+
+### 1. File Structure
+- **Location**: `src/store/api/`
+- **Naming**: camelCase with `.apislice.js` suffix
+- **Example**: `auth.apislice.js`, `investment.apislice.js`
+- **Pattern**: Include parsers for response transformation
+- **Export**: Named export for the API slice
+
+### 2. Base API Configuration
+```javascript
+// src/store/api/baseApi.js
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+import { getAuthToken } from 'utils/auth'
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery: fetchBaseQuery({
+    baseUrl: process.env.REACT_APP_API_BASE_URL,
+    prepareHeaders: (headers, { getState }) => {
+      const token = getAuthToken()
+      if (token) {
+        headers.set('authorization', `Bearer ${token}`)
+      }
+      headers.set('content-type', 'application/json')
+      return headers
+    }
+  }),
+  tagTypes: ['User', 'Fund', 'Portfolio', 'Transaction', 'KYC'],
+  endpoints: () => ({})
+})
+```
+
+### 3. API Service Template
+```javascript
+// src/store/api/investmentApi.js
+import { baseApi } from './baseApi'
+
+export const investmentApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    // Get all funds
+    getFunds: builder.query({
+      query: (params = {}) => ({
+        url: '/funds',
+        params: {
+          page: params.page || 1,
+          limit: params.limit || 20,
+          category: params.category,
+          riskLevel: params.riskLevel,
+          search: params.search
+        }
+      }),
+      providesTags: ['Fund']
+    }),
+    
+    // Get fund by ID
+    getFundById: builder.query({
+      query: (id) => `/funds/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Fund', id }]
+    }),
+    
+    // Get fund performance
+    getFundPerformance: builder.query({
+      query: ({ id, period = '1Y' }) => `/funds/${id}/performance?period=${period}`,
+      providesTags: (result, error, { id }) => [{ type: 'Fund', id, performance: true }]
+    }),
+    
+    // Get user portfolio
+    getPortfolio: builder.query({
+      query: () => '/portfolio',
+      providesTags: ['Portfolio']
+    }),
+    
+    // Get portfolio performance
+    getPortfolioPerformance: builder.query({
+      query: ({ period = '1Y' } = {}) => `/portfolio/performance?period=${period}`,
+      providesTags: ['Portfolio']
+    }),
+    
+    // Create SIP order
+    createSIPOrder: builder.mutation({
+      query: (orderData) => ({
+        url: '/orders/sip',
+        method: 'POST',
+        body: orderData
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Create lumpsum order
+    createLumpsumOrder: builder.mutation({
+      query: (orderData) => ({
+        url: '/orders/lumpsum',
+        method: 'POST',
+        body: orderData
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Redeem investment
+    redeemInvestment: builder.mutation({
+      query: (redemptionData) => ({
+        url: '/orders/redeem',
+        method: 'POST',
+        body: redemptionData
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Update SIP order
+    updateSIPOrder: builder.mutation({
+      query: ({ id, updates }) => ({
+        url: `/orders/sip/${id}`,
+        method: 'PATCH',
+        body: updates
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Cancel SIP order
+    cancelSIPOrder: builder.mutation({
+      query: (id) => ({
+        url: `/orders/sip/${id}/cancel`,
+        method: 'POST'
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Get transactions
+    getTransactions: builder.query({
+      query: (params = {}) => ({
+        url: '/transactions',
+        params: {
+          page: params.page || 1,
+          limit: params.limit || 20,
+          type: params.type,
+          status: params.status,
+          startDate: params.startDate,
+          endDate: params.endDate
+        }
+      }),
+      providesTags: ['Transaction']
+    }),
+    
+    // Get transaction by ID
+    getTransactionById: builder.query({
+      query: (id) => `/transactions/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Transaction', id }]
+    })
+  })
+})
+
+// Export hooks
+export const {
+  useGetFundsQuery,
+  useGetFundByIdQuery,
+  useGetFundPerformanceQuery,
+  useGetPortfolioQuery,
+  useGetPortfolioPerformanceQuery,
+  useCreateSIPOrderMutation,
+  useCreateLumpsumOrderMutation,
+  useRedeemInvestmentMutation,
+  useUpdateSIPOrderMutation,
+  useCancelSIPOrderMutation,
+  useGetTransactionsQuery,
+  useGetTransactionByIdQuery
+} = investmentApi
+```
+
+### 4. Financial API Examples
+
+#### Authentication API
+```javascript
+// src/store/api/authApi.js
+import { baseApi } from './baseApi'
+
+export const authApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    // Login
+    login: builder.mutation({
+      query: (credentials) => ({
+        url: '/auth/login',
+        method: 'POST',
+        body: credentials
+      }),
+      invalidatesTags: ['User']
+    }),
+    
+    // Register
+    register: builder.mutation({
+      query: (userData) => ({
+        url: '/auth/register',
+        method: 'POST',
+        body: userData
+      }),
+      invalidatesTags: ['User']
+    }),
+    
+    // Refresh token
+    refreshToken: builder.mutation({
+      query: (refreshToken) => ({
+        url: '/auth/refresh',
+        method: 'POST',
+        body: { refreshToken }
+      })
+    }),
+    
+    // Logout
+    logout: builder.mutation({
+      query: () => ({
+        url: '/auth/logout',
+        method: 'POST'
+      }),
+      invalidatesTags: ['User']
+    }),
+    
+    // Get user profile
+    getUserProfile: builder.query({
+      query: () => '/auth/profile',
+      providesTags: ['User']
+    }),
+    
+    // Update user profile
+    updateUserProfile: builder.mutation({
+      query: (updates) => ({
+        url: '/auth/profile',
+        method: 'PATCH',
+        body: updates
+      }),
+      invalidatesTags: ['User']
+    }),
+    
+    // Change password
+    changePassword: builder.mutation({
+      query: (passwordData) => ({
+        url: '/auth/change-password',
+        method: 'POST',
+        body: passwordData
+      })
+    }),
+    
+    // Forgot password
+    forgotPassword: builder.mutation({
+      query: (email) => ({
+        url: '/auth/forgot-password',
+        method: 'POST',
+        body: { email }
+      })
+    }),
+    
+    // Reset password
+    resetPassword: builder.mutation({
+      query: (resetData) => ({
+        url: '/auth/reset-password',
+        method: 'POST',
+        body: resetData
+      })
+    })
+  })
+})
+
+export const {
+  useLoginMutation,
+  useRegisterMutation,
+  useRefreshTokenMutation,
+  useLogoutMutation,
+  useGetUserProfileQuery,
+  useUpdateUserProfileMutation,
+  useChangePasswordMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation
+} = authApi
+```
+
+#### KYC API
+```javascript
+// src/store/api/kycApi.js
+import { baseApi } from './baseApi'
+
+export const kycApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    // Get KYC status
+    getKYCStatus: builder.query({
+      query: () => '/kyc/status',
+      providesTags: ['KYC']
+    }),
+    
+    // Submit KYC data
+    submitKYC: builder.mutation({
+      query: (kycData) => ({
+        url: '/kyc/submit',
+        method: 'POST',
+        body: kycData
+      }),
+      invalidatesTags: ['KYC', 'User']
+    }),
+    
+    // Upload KYC documents
+    uploadKYCDocument: builder.mutation({
+      query: ({ type, file }) => {
+        const formData = new FormData()
+        formData.append('type', type)
+        formData.append('file', file)
+        
+        return {
+          url: '/kyc/upload',
+          method: 'POST',
+          body: formData
+        }
+      },
+      invalidatesTags: ['KYC']
+    }),
+    
+    // Get KYC documents
+    getKYCDocuments: builder.query({
+      query: () => '/kyc/documents',
+      providesTags: ['KYC']
+    }),
+    
+    // Update KYC status
+    updateKYCStatus: builder.mutation({
+      query: ({ status, reason }) => ({
+        url: '/kyc/status',
+        method: 'PATCH',
+        body: { status, reason }
+      }),
+      invalidatesTags: ['KYC', 'User']
+    })
+  })
+})
+
+export const {
+  useGetKYCStatusQuery,
+  useSubmitKYCMutation,
+  useUploadKYCDocumentMutation,
+  useGetKYCDocumentsQuery,
+  useUpdateKYCStatusMutation
+} = kycApi
+```
+
+#### Bank Account API
+```javascript
+// src/store/api/bankAccountApi.js
+import { baseApi } from './baseApi'
+
+export const bankAccountApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    // Get bank accounts
+    getBankAccounts: builder.query({
+      query: () => '/bank-accounts',
+      providesTags: ['BankAccount']
+    }),
+    
+    // Add bank account
+    addBankAccount: builder.mutation({
+      query: (accountData) => ({
+        url: '/bank-accounts',
+        method: 'POST',
+        body: accountData
+      }),
+      invalidatesTags: ['BankAccount']
+    }),
+    
+    // Update bank account
+    updateBankAccount: builder.mutation({
+      query: ({ id, updates }) => ({
+        url: `/bank-accounts/${id}`,
+        method: 'PATCH',
+        body: updates
+      }),
+      invalidatesTags: ['BankAccount']
+    }),
+    
+    // Delete bank account
+    deleteBankAccount: builder.mutation({
+      query: (id) => ({
+        url: `/bank-accounts/${id}`,
+        method: 'DELETE'
+      }),
+      invalidatesTags: ['BankAccount']
+    }),
+    
+    // Set default bank account
+    setDefaultBankAccount: builder.mutation({
+      query: (id) => ({
+        url: `/bank-accounts/${id}/set-default`,
+        method: 'POST'
+      }),
+      invalidatesTags: ['BankAccount']
+    }),
+    
+    // Verify bank account
+    verifyBankAccount: builder.mutation({
+      query: ({ id, verificationData }) => ({
+        url: `/bank-accounts/${id}/verify`,
+        method: 'POST',
+        body: verificationData
+      }),
+      invalidatesTags: ['BankAccount']
+    })
+  })
+})
+
+export const {
+  useGetBankAccountsQuery,
+  useAddBankAccountMutation,
+  useUpdateBankAccountMutation,
+  useDeleteBankAccountMutation,
+  useSetDefaultBankAccountMutation,
+  useVerifyBankAccountMutation
+} = bankAccountApi
+```
+
+### 5. Store Registration
+```javascript
+// src/store/index.js
+import { configureStore } from '@reduxjs/toolkit'
+import { baseApi } from './api/baseApi'
+import { investmentApi } from './api/investmentApi'
+import { authApi } from './api/authApi'
+import { kycApi } from './api/kycApi'
+import { bankAccountApi } from './api/bankAccountApi'
+import userReducer from './slices/userSlice'
+import investmentReducer from './slices/investmentSlice'
+
+export const store = configureStore({
+  reducer: {
+    [baseApi.reducerPath]: baseApi.reducer,
+    [investmentApi.reducerPath]: investmentApi.reducer,
+    [authApi.reducerPath]: authApi.reducer,
+    [kycApi.reducerPath]: kycApi.reducer,
+    [bankAccountApi.reducerPath]: bankAccountApi.reducer,
+    user: userReducer,
+    investment: investmentReducer
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware()
+      .concat(baseApi.middleware)
+      .concat(investmentApi.middleware)
+      .concat(authApi.middleware)
+      .concat(kycApi.middleware)
+      .concat(bankAccountApi.middleware)
+})
+```
+
+### 6. API Service Requirements Checklist
+
+#### ✅ Basic Requirements
+- [ ] Use createApi and injectEndpoints
+- [ ] Configure proper baseQuery with auth headers
+- [ ] Define appropriate tagTypes for cache invalidation
+- [ ] Export generated hooks
+- [ ] Register API reducer and middleware in store
+
+#### ✅ Financial API Specific
+- [ ] Include proper error handling for financial operations
+- [ ] Add validation for financial data
+- [ ] Include proper cache invalidation strategies
+- [ ] Add optimistic updates where appropriate
+- [ ] Include proper loading states
+
+#### ✅ Security
+- [ ] Include authentication headers
+- [ ] Add proper error handling for auth failures
+- [ ] Include token refresh logic
+- [ ] Add proper validation for sensitive data
+
+### 7. Testing Template
+```javascript
+// src/store/api/__tests__/investmentApi.test.js
+import { renderHook, waitFor } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { configureStore } from '@reduxjs/toolkit'
+import { investmentApi } from '../investmentApi'
+
+const createTestStore = () => {
+  return configureStore({
+    reducer: {
+      [investmentApi.reducerPath]: investmentApi.reducer
+    },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware().concat(investmentApi.middleware)
+  })
+}
+
+const wrapper = ({ children }) => {
+  const store = createTestStore()
+  return <Provider store={store}>{children}</Provider>
+}
+
+describe('investmentApi', () => {
+  it('should fetch funds', async () => {
+    const { result } = renderHook(() => investmentApi.useGetFundsQuery(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true)
+    })
+
+    expect(result.current.data).toBeDefined()
+  })
+
+  it('should create SIP order', async () => {
+    const { result } = renderHook(() => investmentApi.useCreateSIPOrderMutation(), { wrapper })
+
+    const [createSIPOrder] = result.current
+
+    await waitFor(async () => {
+      const response = await createSIPOrder({
+        fundId: '1',
+        amount: 1000,
+        frequency: 'monthly'
+      })
+      
+      expect(response.data).toBeDefined()
+    })
+  })
+})
+```
+
+### 8. Common API Patterns
+
+#### Query Endpoints
+- `getFunds` - Fetch fund list with filters
+- `getFundById` - Fetch specific fund details
+- `getPortfolio` - Fetch user portfolio
+- `getTransactions` - Fetch transaction history
+
+#### Mutation Endpoints
+- `createSIPOrder` - Create SIP investment
+- `createLumpsumOrder` - Create lumpsum investment
+- `redeemInvestment` - Redeem investment
+- `updateProfile` - Update user profile
+
+#### Cache Invalidation
+- Use `providesTags` for data that should be cached
+- Use `invalidatesTags` for mutations that affect cached data
+- Use specific tags for granular cache control
+
+#### Error Handling
+- Include proper error handling in baseQuery
+- Add retry logic for failed requests
+- Include proper error messages for user feedback

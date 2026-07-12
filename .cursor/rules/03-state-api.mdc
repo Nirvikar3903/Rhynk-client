@@ -1,0 +1,392 @@
+---
+alwaysApply: true
+---
+# State Management & API Integration
+
+## Redux Toolkit with createSlice
+
+### Redux Slice Pattern
+```javascript
+// src/store/slices/investment.slice.js
+import { createSlice, createSelector } from '@reduxjs/toolkit'
+
+const initialState = {
+  funds: [],
+  selectedFund: null,
+  portfolio: [],
+  loading: false,
+  error: null
+}
+
+const investmentSlice = createSlice({
+  name: 'investment',
+  initialState,
+  reducers: {
+    setFunds: (state, action) => {
+      state.funds = action.payload
+    },
+    setSelectedFund: (state, action) => {
+      state.selectedFund = action.payload
+    },
+    setLoading: (state, action) => {
+      state.loading = action.payload
+    },
+    setError: (state, action) => {
+      state.error = action.payload
+    },
+    clearError: (state) => {
+      state.error = null
+    }
+  }
+})
+
+export const { 
+  setFunds, 
+  setSelectedFund, 
+  setLoading, 
+  setError, 
+  clearError 
+} = investmentSlice.actions
+
+// Selectors
+export const selectFunds = (state) => state.investment.funds
+export const selectSelectedFund = (state) => state.investment.selectedFund
+export const selectPortfolio = (state) => state.investment.portfolio
+export const selectInvestmentLoading = (state) => state.investment.loading
+export const selectInvestmentError = (state) => state.investment.error
+
+// Memoized selectors
+export const selectFundsByCategory = createSelector(
+  [selectFunds, (state, category) => category],
+  (funds, category) => funds.filter(fund => fund.category === category)
+)
+
+export default investmentSlice.reducer
+```
+
+## API Response Parsers
+
+### Parser Pattern
+```javascript
+// src/store/parsers/fund.parsers.js
+export const parseFundsResponse = (response) => {
+  if (!response || !response.data) {
+    return {
+      funds: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0
+      }
+    }
+  }
+
+  return {
+    funds: response.data.map(fund => ({
+      id: fund.id,
+      name: fund.name,
+      nav: parseFloat(fund.nav),
+      category: fund.category,
+      riskLevel: fund.risk_level,
+      returns: parseFloat(fund.returns),
+      aum: parseFloat(fund.aum),
+      expenseRatio: parseFloat(fund.expense_ratio)
+    })),
+    pagination: {
+      page: response.pagination?.page || 1,
+      limit: response.pagination?.limit || 20,
+      total: response.pagination?.total || 0,
+      totalPages: response.pagination?.total_pages || 0
+    }
+  }
+}
+
+export const parseFundDetailsResponse = (response) => {
+  if (!response || !response.data) {
+    return null
+  }
+
+  return {
+    id: response.data.id,
+    name: response.data.name,
+    nav: parseFloat(response.data.nav),
+    category: response.data.category,
+    riskLevel: response.data.risk_level,
+    returns: parseFloat(response.data.returns),
+    aum: parseFloat(response.data.aum),
+    expenseRatio: parseFloat(response.data.expense_ratio),
+    description: response.data.description,
+    fundManager: response.data.fund_manager,
+    inceptionDate: response.data.inception_date
+  }
+}
+```
+
+## Redux Persist Configuration
+
+### Per-Slice Persist Strategy
+```javascript
+// src/store/slices/user.slice.js
+import { createSlice } from '@reduxjs/toolkit'
+import { persistReducer } from 'redux-persist'
+import storage from 'redux-persist/lib/storage'
+
+const userPersistConfig = {
+  key: 'user',
+  storage,
+  whitelist: ['profile', 'preferences'], // Don't persist tokens
+  blacklist: ['loading', 'error']
+}
+
+const userSlice = createSlice({
+  name: 'user',
+  initialState: {
+    profile: null,
+    preferences: {},
+    loading: false,
+    error: null
+  },
+  reducers: {
+    setUser: (state, action) => {
+      state.profile = action.payload
+    },
+    updatePreferences: (state, action) => {
+      state.preferences = { ...state.preferences, ...action.payload }
+    }
+  }
+})
+
+// Apply persist to this slice only
+export default persistReducer(userPersistConfig, userSlice.reducer)
+```
+
+### Store Configuration
+```javascript
+// src/store/index.js
+import { configureStore } from '@reduxjs/toolkit'
+import { persistStore } from 'redux-persist'
+import userReducer from './slices/user.slice'
+import investmentReducer from './slices/investment.slice'
+
+export const store = configureStore({
+  reducer: {
+    user: userReducer, // Already persisted
+    investment: investmentReducer, // Already persisted
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER]
+      }
+    })
+})
+
+export const persistor = persistStore(store)
+```
+
+### Selective Persistence
+```javascript
+// Persist only specific fields
+const userPersistConfig = {
+  key: 'user',
+  storage,
+  whitelist: ['profile', 'preferences'] // Don't persist tokens
+}
+
+const investmentPersistConfig = {
+  key: 'investment',
+  storage,
+  whitelist: ['portfolio', 'watchlist'] // Don't persist loading states
+}
+```
+
+## RTK Query API Integration
+
+### Base API Configuration
+```javascript
+// src/store/api/baseApi.js
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+import { getAuthToken } from 'utils/auth'
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery: fetchBaseQuery({
+    baseUrl: process.env.REACT_APP_API_BASE_URL,
+    prepareHeaders: (headers, { getState }) => {
+      const token = getAuthToken()
+      if (token) {
+        headers.set('authorization', `Bearer ${token}`)
+      }
+      headers.set('content-type', 'application/json')
+      return headers
+    }
+  }),
+  tagTypes: ['User', 'Fund', 'Portfolio', 'Transaction'],
+  endpoints: () => ({})
+})
+```
+
+### API Service Pattern with Parsers
+```javascript
+// src/store/api/investment.apislice.js
+import { baseApi } from './baseApi'
+import { parseFundsResponse, parseFundDetailsResponse } from 'store/parsers/fund.parsers'
+
+export const investmentApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    // Get all funds
+    getFunds: builder.query({
+      query: (params = {}) => ({
+        url: '/funds',
+        params
+      }),
+      transformResponse: parseFundsResponse,
+      providesTags: ['Fund']
+    }),
+    
+    // Get fund details
+    getFundById: builder.query({
+      query: (id) => `/funds/${id}`,
+      providesTags: (result, error, id) => [{ type: 'Fund', id }]
+    }),
+    
+    // Get user portfolio
+    getPortfolio: builder.query({
+      query: () => '/portfolio',
+      providesTags: ['Portfolio']
+    }),
+    
+    // Create SIP order
+    createSIPOrder: builder.mutation({
+      query: (orderData) => ({
+        url: '/orders/sip',
+        method: 'POST',
+        body: orderData
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Create lumpsum order
+    createLumpsumOrder: builder.mutation({
+      query: (orderData) => ({
+        url: '/orders/lumpsum',
+        method: 'POST',
+        body: orderData
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    }),
+    
+    // Redeem investment
+    redeemInvestment: builder.mutation({
+      query: (redemptionData) => ({
+        url: '/orders/redeem',
+        method: 'POST',
+        body: redemptionData
+      }),
+      invalidatesTags: ['Portfolio', 'Transaction']
+    })
+  })
+})
+
+export const {
+  useGetFundsQuery,
+  useGetFundByIdQuery,
+  useGetPortfolioQuery,
+  useCreateSIPOrderMutation,
+  useCreateLumpsumOrderMutation,
+  useRedeemInvestmentMutation
+} = investmentApi
+```
+
+### Store Registration
+```javascript
+// src/store/index.js
+import { configureStore } from '@reduxjs/toolkit'
+import { baseApi } from './api/baseApi'
+import investmentReducer from './slices/investmentSlice'
+import userReducer from './slices/userSlice'
+
+export const store = configureStore({
+  reducer: {
+    [baseApi.reducerPath]: baseApi.reducer,
+    investment: investmentReducer,
+    user: userReducer
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(baseApi.middleware)
+})
+```
+
+## Cache Invalidation Strategies
+
+### Tag-Based Invalidation
+```javascript
+// Invalidate related data when creating orders
+createSIPOrder: builder.mutation({
+  query: (orderData) => ({
+    url: '/orders/sip',
+    method: 'POST',
+    body: orderData
+  }),
+  invalidatesTags: [
+    'Portfolio',     // Refresh portfolio data
+    'Transaction',   // Refresh transaction history
+    { type: 'Fund', id: 'LIST' } // Refresh fund list if needed
+  ]
+})
+```
+
+### Optimistic Updates
+```javascript
+// Optimistic update for better UX
+updatePortfolio: builder.mutation({
+  query: (updates) => ({
+    url: '/portfolio',
+    method: 'PATCH',
+    body: updates
+  }),
+  async onQueryStarted(updates, { dispatch, queryFulfilled }) {
+    // Optimistic update
+    const patchResult = dispatch(
+      investmentApi.util.updateQueryData('getPortfolio', undefined, (draft) => {
+        Object.assign(draft, updates)
+      })
+    )
+    
+    try {
+      await queryFulfilled
+    } catch {
+      // Revert on error
+      patchResult.undo()
+    }
+  },
+  invalidatesTags: ['Portfolio']
+})
+```
+
+## No Direct API Calls
+- **Never use axios or fetch directly in components**
+- All API calls must go through RTK Query
+- Use generated hooks in components
+
+```javascript
+// ✅ Correct - Use RTK Query hooks
+const FundList = () => {
+  const { data: funds, error, isLoading } = useGetFundsQuery()
+  const [createOrder] = useCreateSIPOrderMutation()
+  
+  // component logic
+}
+
+// ❌ Avoid - Direct API calls
+const FundList = () => {
+  const [funds, setFunds] = useState([])
+  
+  useEffect(() => {
+    fetch('/api/funds') // Don't do this
+      .then(res => res.json())
+      .then(setFunds)
+  }, [])
+}
+```

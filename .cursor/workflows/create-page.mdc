@@ -1,0 +1,391 @@
+# Create Page Workflow
+
+## Page Creation Checklist
+
+### 1. File Structure Pattern
+- **Page**: `src/pages/PageNamePage.jsx` (minimal, delegates to container)
+- **Container**: `src/containers/PageNameContainer.jsx` (business logic, API, Redux)
+- **Components**: `src/components/PageNameComponent.jsx` (UI only, props-based)
+- **Route**: Register in `src/router/index.jsx`
+
+### 2. Page Template
+```javascript
+// src/pages/InvestmentPage.jsx
+import React from 'react'
+import { InvestmentContainer } from 'containers/InvestmentContainer'
+
+const InvestmentPage = () => {
+  return <InvestmentContainer />
+}
+
+export default InvestmentPage
+```
+
+### 3. Container Template
+```javascript
+// src/containers/InvestmentContainer.jsx
+import React, { useState, useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useGetFundsQuery, useCreateSIPOrderMutation } from 'store/api/investment.apislice'
+import { FundListComponent } from 'components/investment/FundListComponent'
+import { InvestmentFormComponent } from 'components/investment/InvestmentFormComponent'
+import { AppModalComponent } from 'components/mui/AppModalComponent'
+import { setSelectedFund } from 'store/slices/investment.slice'
+
+// Component scope
+const DEFAULT_PAGE_SIZE = 20
+
+const InvestmentContainer = () => {
+  // States, refs, selectors, RTK Query hooks
+  const [showForm, setShowForm] = useState(false)
+  const [selectedFundId, setSelectedFundId] = useState(null)
+  const [page, setPage] = useState(1)
+  
+  const dispatch = useDispatch()
+  const { data: funds, error, isLoading } = useGetFundsQuery({ page })
+  const [createSIPOrder, { isLoading: isSubmitting }] = useCreateSIPOrderMutation()
+  const selectedFund = useSelector(state => state.investment.selectedFund)
+
+  const handleFundSelect = (fundId) => {
+    setSelectedFundId(fundId)
+    const fund = funds?.find(f => f.id === fundId)
+    if (fund) {
+      dispatch(setSelectedFund(fund))
+      setShowForm(true)
+    }
+  }
+
+  const handleFormSubmit = async (formData) => {
+    try {
+      await createSIPOrder({
+        fundId: selectedFundId,
+        ...formData
+      }).unwrap()
+      
+      setShowForm(false)
+      setSelectedFundId(null)
+      // Show success message
+    } catch (error) {
+      console.error('Failed to create SIP order:', error)
+      // Show error message
+    }
+  }
+
+  const handleCloseForm = () => {
+    setShowForm(false)
+    setSelectedFundId(null)
+    dispatch(setSelectedFund(null))
+  }
+
+  if (isLoading) {
+    return <div>Loading funds...</div>
+  }
+
+  if (error) {
+    return <div>Error loading funds: {error.message}</div>
+  }
+
+  return (
+    <div>
+      <h1>Investment Options</h1>
+      
+      <FundList 
+        funds={funds || []}
+        onFundSelect={handleFundSelect}
+      />
+      
+      <AppModal
+        open={showForm}
+        onClose={handleCloseForm}
+        title="Create SIP Investment"
+      >
+        <InvestmentForm
+          onSubmit={handleFormSubmit}
+          loading={isSubmitting}
+          selectedFund={selectedFund}
+        />
+      </AppModal>
+    </div>
+  )
+}
+
+export default InvestmentContainer
+```
+
+### 4. Financial Page Examples
+
+#### Portfolio Page
+```javascript
+// src/pages/PortfolioPage.jsx
+import React from 'react'
+import { PortfolioContainer } from 'containers/PortfolioContainer'
+
+const PortfolioPage = () => {
+  return <PortfolioContainer />
+}
+
+export default PortfolioPage
+```
+
+```javascript
+// src/containers/PortfolioContainer.jsx
+import React, { useState, useEffect } from 'react'
+import { useSelector } from 'react-redux'
+import { useGetPortfolioQuery } from 'store/api/investmentApi'
+import { PortfolioSummary } from 'components/portfolio/PortfolioSummary'
+import { PortfolioChart } from 'components/portfolio/PortfolioChart'
+import { InvestmentList } from 'components/portfolio/InvestmentList'
+
+const PortfolioContainer = () => {
+  const [timeRange, setTimeRange] = useState('1Y')
+  
+  const { data: portfolio, isLoading, error } = useGetPortfolioQuery()
+  const user = useSelector(state => state.user.profile)
+
+  if (isLoading) return <div>Loading portfolio...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <div>
+      <h1>Portfolio Overview</h1>
+      <p>Welcome back, {user?.firstName}</p>
+      
+      <PortfolioSummary 
+        portfolio={portfolio}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+      />
+      
+      <PortfolioChart 
+        data={portfolio?.chartData}
+        timeRange={timeRange}
+      />
+      
+      <InvestmentList 
+        investments={portfolio?.investments}
+      />
+    </div>
+  )
+}
+
+export default PortfolioContainer
+```
+
+#### KYC Page
+```javascript
+// src/pages/KYCPage.jsx
+import React from 'react'
+import { KYCContainer } from 'containers/KYCContainer'
+
+const KYCPage = () => {
+  return <KYCContainer />
+}
+
+export default KYCPage
+```
+
+```javascript
+// src/containers/KYCContainer.jsx
+import React, { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import { kycSchema } from 'schemas/kycSchema'
+import { KYCForm } from 'components/kyc/KYCForm'
+import { DocumentUpload } from 'components/kyc/DocumentUpload'
+import { useCreateKYCMutation } from 'store/api/kycApi'
+
+const KYCContainer = () => {
+  const [currentStep, setCurrentStep] = useState(1)
+  const [createKYC, { isLoading }] = useCreateKYCMutation()
+  
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+    watch
+  } = useForm({
+    resolver: yupResolver(kycSchema),
+    mode: 'onChange'
+  })
+
+  const handleFormSubmit = async (data) => {
+    try {
+      await createKYC(data).unwrap()
+      setCurrentStep(3) // Success step
+    } catch (error) {
+      console.error('KYC submission failed:', error)
+    }
+  }
+
+  const nextStep = () => setCurrentStep(prev => prev + 1)
+  const prevStep = () => setCurrentStep(prev => prev - 1)
+
+  return (
+    <div>
+      <h1>Complete Your KYC</h1>
+      
+      {currentStep === 1 && (
+        <KYCForm
+          control={control}
+          errors={errors}
+          onNext={nextStep}
+          isValid={isValid}
+        />
+      )}
+      
+      {currentStep === 2 && (
+        <DocumentUpload
+          onBack={prevStep}
+          onSubmit={handleSubmit(handleFormSubmit)}
+          loading={isLoading}
+        />
+      )}
+      
+      {currentStep === 3 && (
+        <div>
+          <h2>KYC Submitted Successfully!</h2>
+          <p>Your documents are under review. You'll be notified once approved.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default KYCContainer
+```
+
+### 5. Route Registration
+```javascript
+// src/router/index.jsx
+import React, { lazy, Suspense } from 'react'
+import { Routes, Route } from 'react-router-dom'
+import { Box, CircularProgress } from '@mui/material'
+
+// Lazy load pages
+const DashboardPage = lazy(() => import('pages/DashboardPage'))
+const InvestmentPage = lazy(() => import('pages/InvestmentPage'))
+const PortfolioPage = lazy(() => import('pages/PortfolioPage'))
+const KYCPage = lazy(() => import('pages/KYCPage'))
+const ProfilePage = lazy(() => import('pages/ProfilePage'))
+
+const PageLoader = () => (
+  <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+    <CircularProgress />
+  </Box>
+)
+
+const AppRouter = () => {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/investment" element={<InvestmentPage />} />
+        <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/kyc" element={<KYCPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+      </Routes>
+    </Suspense>
+  )
+}
+
+export default AppRouter
+```
+
+### 6. Page Requirements Checklist
+
+#### ✅ Page Component
+- [ ] Minimal component that delegates to container
+- [ ] Single responsibility: route rendering
+- [ ] No business logic or state management
+- [ ] Use absolute imports
+
+#### ✅ Container Component
+- [ ] Contains all business logic
+- [ ] Manages state and API calls
+- [ ] Handles user interactions
+- [ ] Renders reusable components
+- [ ] Uses RTK Query for API calls
+- [ ] Uses Redux for state management
+
+#### ✅ Route Integration
+- [ ] Register route in `src/router/index.jsx`
+- [ ] Use lazy loading for performance
+- [ ] Add proper loading states
+- [ ] Include error boundaries
+
+#### ✅ Financial App Specific
+- [ ] Include proper error handling
+- [ ] Add loading states for API calls
+- [ ] Use financial data formatting utilities
+- [ ] Include mobile responsiveness with MUI breakpoints
+- [ ] Add proper validation
+- [ ] Use MUI SX prop for all styling
+
+### 7. Common Page Patterns
+
+#### List Pages (Funds, Transactions)
+- Display data in cards or tables
+- Include search and filter functionality
+- Add pagination for large datasets
+- Include sorting options
+
+#### Form Pages (KYC, Investment)
+- Multi-step forms with validation
+- Progress indicators
+- Save draft functionality
+- Clear error messaging
+
+#### Detail Pages (Fund Details, Transaction Details)
+- Display comprehensive information
+- Include related actions
+- Add sharing functionality
+- Include navigation breadcrumbs
+
+#### Dashboard Pages (Portfolio, Analytics)
+- Summary cards with key metrics
+- Interactive charts and graphs
+- Quick action buttons
+- Real-time data updates
+
+### 8. Testing Template
+```javascript
+// src/pages/__tests__/InvestmentPage.test.jsx
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import { Provider } from 'react-redux'
+import { BrowserRouter } from 'react-router-dom'
+import { configureStore } from '@reduxjs/toolkit'
+import InvestmentPage from '../InvestmentPage'
+
+const createTestStore = () => {
+  return configureStore({
+    reducer: {
+      investment: (state = { selectedFund: null }, action) => state
+    }
+  })
+}
+
+const TestWrapper = ({ children }) => {
+  const store = createTestStore()
+  
+  return (
+    <Provider store={store}>
+      <BrowserRouter>
+        {children}
+      </BrowserRouter>
+    </Provider>
+  )
+}
+
+describe('InvestmentPage', () => {
+  it('renders without crashing', () => {
+    render(
+      <TestWrapper>
+        <InvestmentPage />
+      </TestWrapper>
+    )
+    
+    expect(screen.getByText('Investment Options')).toBeInTheDocument()
+  })
+})
+```
