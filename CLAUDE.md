@@ -11,7 +11,7 @@ slice, etc.) have step-by-step playbooks in `.claude/workflows/` (mirrored in
 of task: `create-component`, `create-hook`, `create-page`, `create-form`,
 `create-api-service`, `create-redux-slice`, `create-parser`,
 `create-mui-component`, `create-feature-module`, `setup-encryption`,
-`figma-integration`.
+`figma-integration`, `convert-stitch-design`.
 
 @.claude/rules/00-overview.md
 @.claude/rules/01-architecture.md

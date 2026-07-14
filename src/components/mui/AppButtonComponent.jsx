@@ -17,7 +17,7 @@ const AppButtonComponent = ({
       color={color}
       size={size}
       disabled={disabled || loading}
-      sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 500, ...sx }}
+      sx={sx}
       {...props}
     >
       {loading ? 'Loading…' : children}
