@@ -23,3 +23,4 @@ of task: `create-component`, `create-hook`, `create-page`, `create-form`,
 @.claude/rules/07-realtime-sockets.md
 @.claude/rules/08-music-rooms.md
 @.claude/rules/09-git-env-workflow.md
+@.claude/rules/10-task-discipline.md
