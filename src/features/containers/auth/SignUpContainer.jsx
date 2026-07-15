@@ -31,6 +31,10 @@ const SignUpContainer = () => {
       }).unwrap()
       toast.success(`Account created for ${result.email} — check your inbox for the verification code.`)
       setVerifyingEmail(result.email)
+      setName('')
+      setEmail('')
+      setPassword('')
+      setShowPassword(false)
     } catch (err) {
       toast.error(err?.data?.code ?? 'Something went wrong. Please try again.')
     }

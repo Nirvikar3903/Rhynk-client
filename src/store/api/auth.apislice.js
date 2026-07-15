@@ -1,20 +1,12 @@
 import { baseApi } from './baseApi'
-import { setSession, setTokens, clearSession } from '../slices/auth.slice'
-import { parseRegisterResponse } from '../parsers/auth.parsers'
+import { setSession, clearSession } from '../slices/auth.slice'
+import { parseRegisterResponse, parseSessionResponse } from '../parsers/auth.parsers'
+import { getDeviceId } from './deviceId'
 
-// deviceId is client-generated and must stay stable for this browser — the
-// server never returns one (docs/AUTH_MODULE.md §4). deviceType is always
-// WEB since this is a web client (see .claude/rules/06-auth-security.md).
-const DEVICE_ID_KEY = 'rhynk_device_id'
-
-const getDeviceId = () => {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY)
-  if (!deviceId) {
-    deviceId = crypto.randomUUID()
-    localStorage.setItem(DEVICE_ID_KEY, deviceId)
-  }
-  return deviceId
-}
+// deviceType is always WEB since this is a web client (see
+// .claude/rules/06-auth-security.md). /auth/refresh isn't an endpoint here —
+// baseApi's baseQueryWithReauth calls it directly and automatically on a 401
+// (see store/api/baseApi.js), so there's nothing for the UI to trigger.
 
 // Every /auth endpoint in docs/AUTH_MODULE.md §4 is a POST — there is no
 // documented GET/query endpoint (e.g. no "GET /auth/me"), so this slice is
@@ -44,6 +36,7 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { email, otp, deviceId: getDeviceId(), deviceType: 'WEB' },
       }),
+      transformResponse: parseSessionResponse,
       onQueryStarted: async (_args, { dispatch, queryFulfilled }) => {
         const { data } = await queryFulfilled
         dispatch(setSession(data))
@@ -56,6 +49,7 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { email, password, deviceId: getDeviceId(), deviceType: 'WEB' },
       }),
+      transformResponse: parseSessionResponse,
       onQueryStarted: async (_args, { dispatch, queryFulfilled }) => {
         const { data } = await queryFulfilled
         dispatch(setSession(data))
@@ -68,18 +62,6 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { email },
       }),
-    }),
-
-    refresh: builder.mutation({
-      query: ({ refreshToken }) => ({
-        url: '/auth/refresh',
-        method: 'POST',
-        body: { refreshToken, deviceId: getDeviceId() },
-      }),
-      onQueryStarted: async (_args, { dispatch, queryFulfilled }) => {
-        const { data } = await queryFulfilled
-        dispatch(setTokens(data))
-      },
     }),
 
     logout: builder.mutation({
@@ -101,6 +83,5 @@ export const {
   useVerifyOtpMutation,
   useLoginMutation,
   useResendOtpMutation,
-  useRefreshMutation,
   useLogoutMutation,
 } = authApi
