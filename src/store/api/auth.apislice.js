@@ -76,15 +76,14 @@ export const authApi = baseApi.injectEndpoints({
 
     // Not part of docs/AUTH_MODULE.md's 6-endpoint contract — a separate
     // forgot-password flow confirmed directly by the team. Request takes
-    // { username, email } (no phone, despite ForgotPasswordModal's original
-    // "Email or Phone" mock copy — see .claude/rules/06-auth-security.md's
-    // "don't invent a different auth flow shape" for why the field was
-    // narrowed to match).
+    // { email } only — confirmed against the live server (omitting username
+    // returns a normal INVALID_CREDENTIALS business error, not a schema
+    // validation error, so it's not a required field here).
     forgotPasswordRequest: builder.mutation({
-      query: ({ username, email }) => ({
+      query: ({ email }) => ({
         url: '/auth/forgot-password/request',
         method: 'POST',
-        body: { username, email },
+        body: { email },
       }),
     }),
 

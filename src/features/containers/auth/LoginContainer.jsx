@@ -2,8 +2,15 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import LoginForm from 'components/auth/LoginForm'
-import ForgotPasswordContainer from 'features/containers/auth/ForgotPasswordContainer'
-import { useLoginMutation } from 'store/api/auth.apislice'
+import ForgotPasswordModal from 'components/auth/ForgotPasswordModal'
+import OtpVerificationModal from 'components/common/OtpVerificationModal'
+import ResetPasswordModal from 'components/auth/ResetPasswordModal'
+import {
+  useLoginMutation,
+  useForgotPasswordRequestMutation,
+  useForgotPasswordVerifyMutation,
+  useForgotPasswordResetMutation,
+} from 'store/api/auth.apislice'
 
 // Phone login is designed but not wired — commented out in LoginForm, not
 // removed, until the backend supports a phone-based flow. Same pattern as
@@ -13,8 +20,23 @@ const LoginContainer = () => {
   const [identity, setIdentity] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
   const [login, { isLoading }] = useLoginMutation()
+
+  // Forgot-password flow: three steps, each its own modal (never more than
+  // one open at once): request (email only) → the generic OTP modal reused
+  // as-is from signup → set a new password. The resetToken powering the
+  // final step comes from the verify response, not from anything the user
+  // types.
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  const [step, setStep] = useState('request')
+  const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
+  const [resetToken, setResetToken] = useState(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [requestReset, { isLoading: isRequesting }] = useForgotPasswordRequestMutation()
+  const [verifyReset, { isLoading: isVerifying }] = useForgotPasswordVerifyMutation()
+  const [resetPassword, { isLoading: isResetting }] = useForgotPasswordResetMutation()
 
   const handleSubmit = async () => {
     try {
@@ -28,6 +50,50 @@ const LoginContainer = () => {
 
   const handleGoogleLogin = () => {
     toast.info('Google sign-in is not implemented yet.')
+  }
+
+  const resetForgotPasswordState = () => {
+    setStep('request')
+    setEmail('')
+    setOtp('')
+    setResetToken(null)
+    setNewPassword('')
+    setShowNewPassword(false)
+  }
+
+  const handleForgotPasswordClose = () => {
+    resetForgotPasswordState()
+    setIsForgotPasswordOpen(false)
+  }
+
+  const handleRequestSubmit = async () => {
+    try {
+      await requestReset({ email }).unwrap()
+      toast.success('A reset code has been sent to your email.')
+      setStep('verify')
+    } catch (err) {
+      toast.error(err?.data?.code ?? 'Something went wrong. Please try again.')
+    }
+  }
+
+  const handleVerifySubmit = async () => {
+    try {
+      const result = await verifyReset({ email, otp }).unwrap()
+      setResetToken(result?.resetToken ?? null)
+      setStep('reset')
+    } catch (err) {
+      toast.error(err?.data?.code ?? 'Invalid or expired code. Please try again.')
+    }
+  }
+
+  const handleResetSubmit = async () => {
+    try {
+      await resetPassword({ email, resetToken, newPassword }).unwrap()
+      toast.success('Password reset — you can now log in with your new password.')
+      handleForgotPasswordClose()
+    } catch (err) {
+      toast.error(err?.data?.code ?? 'Something went wrong. Please try again.')
+    }
   }
 
   return (
@@ -44,7 +110,38 @@ const LoginContainer = () => {
         password={password}
         showPassword={showPassword}
       />
-      <ForgotPasswordContainer onClose={() => setIsForgotPasswordOpen(false)} open={isForgotPasswordOpen} />
+      <ForgotPasswordModal
+        email={email}
+        isSubmitting={isRequesting}
+        onClose={handleForgotPasswordClose}
+        onEmailChange={setEmail}
+        onSubmit={handleRequestSubmit}
+        open={isForgotPasswordOpen && step === 'request'}
+      />
+      <OtpVerificationModal
+        destination={email}
+        isSubmitting={isVerifying}
+        onClose={handleForgotPasswordClose}
+        onEditDestination={() => setStep('request')}
+        onOtpChange={setOtp}
+        onSubmit={handleVerifySubmit}
+        open={isForgotPasswordOpen && step === 'verify'}
+        otp={otp}
+        title="Reset your password."
+        trustNote={null}
+      />
+      <ResetPasswordModal
+        email={email}
+        isSubmitting={isResetting}
+        newPassword={newPassword}
+        onClose={handleForgotPasswordClose}
+        onEmailChange={setEmail}
+        onNewPasswordChange={setNewPassword}
+        onSubmit={handleResetSubmit}
+        onToggleShowNewPassword={() => setShowNewPassword((prev) => !prev)}
+        open={isForgotPasswordOpen && step === 'reset'}
+        showNewPassword={showNewPassword}
+      />
     </>
   )
 }

@@ -1,8 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import SignUpForm from 'components/auth/SignUpForm'
-import VerifyOtpContainer from 'features/containers/auth/VerifyOtpContainer'
-import { useRegisterMutation } from 'store/api/auth.apislice'
+import OtpVerificationModal from 'components/common/OtpVerificationModal'
+import { useRegisterMutation, useVerifyOtpMutation, useResendOtpMutation } from 'store/api/auth.apislice'
+
+const RESEND_COOLDOWN_SECONDS = 60
+
+// Client-side UX countdown only — docs/AUTH_MODULE.md §7 notes a 30s
+// per-email cooldown enforced server-side, so this is intentionally the
+// longer of the two; it's not a substitute for that server-side enforcement
+// (see .claude/rules/06-auth-security.md).
+const maskEmail = (email) => {
+  const [local, domain] = email.split('@')
+  if (!domain) return email
+  const visible = local.slice(0, 2)
+  const hidden = '•'.repeat(Math.max(local.length - visible.length, 3))
+  return `${visible}${hidden}@${domain}`
+}
 
 // Phone signup is designed but not wired — commented out in SignUpForm,
 // not removed, until the backend supports a phone-based flow.
@@ -11,8 +25,39 @@ const SignUpContainer = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [verifyingEmail, setVerifyingEmail] = useState(null)
   const [register, { isLoading }] = useRegisterMutation()
+
+  // OTP verification step, opened once registration succeeds. Renders as a
+  // modal over the signup screen rather than a route of its own.
+  const [verifyingEmail, setVerifyingEmail] = useState(null)
+  const [otp, setOtp] = useState('')
+  const [resendSecondsRemaining, setResendSecondsRemaining] = useState(RESEND_COOLDOWN_SECONDS)
+  const [verifyOtp, { isLoading: isVerifying }] = useVerifyOtpMutation()
+  const [resendOtp, { isLoading: isResending }] = useResendOtpMutation()
+
+  const isOtpOpen = Boolean(verifyingEmail)
+
+  // The modal stays mounted across opens (only `isOtpOpen` toggles the
+  // Dialog), so state from a previous attempt needs clearing on the open
+  // transition. Adjusted during render (React's documented alternative to an
+  // effect that only exists to sync state off a prop change) rather than in
+  // a useEffect.
+  const [wasOtpOpen, setWasOtpOpen] = useState(isOtpOpen)
+  if (isOtpOpen !== wasOtpOpen) {
+    setWasOtpOpen(isOtpOpen)
+    if (isOtpOpen) {
+      setOtp('')
+      setResendSecondsRemaining(RESEND_COOLDOWN_SECONDS)
+    }
+  }
+
+  useEffect(() => {
+    if (!isOtpOpen || resendSecondsRemaining <= 0) return undefined
+    const timer = setInterval(() => {
+      setResendSecondsRemaining((prev) => prev - 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [isOtpOpen, resendSecondsRemaining])
 
   const handleSubmit = async () => {
     try {
@@ -32,6 +77,26 @@ const SignUpContainer = () => {
     toast.info('Google sign-up is not implemented yet.')
   }
 
+  const handleVerifyOtpSubmit = async () => {
+    try {
+      await verifyOtp({ email: verifyingEmail, otp }).unwrap()
+      toast.success('Account verified! You can now log in.')
+      setVerifyingEmail(null)
+    } catch (err) {
+      toast.error(err?.data?.code ?? 'Invalid or expired code. Please try again.')
+    }
+  }
+
+  const handleResendOtp = async () => {
+    try {
+      await resendOtp({ email: verifyingEmail }).unwrap()
+      setResendSecondsRemaining(RESEND_COOLDOWN_SECONDS)
+      toast.success('A new code has been sent.')
+    } catch (err) {
+      toast.error(err?.data?.code ?? 'Could not resend the code. Please try again.')
+    }
+  }
+
   return (
     <>
       <SignUpForm
@@ -47,11 +112,18 @@ const SignUpContainer = () => {
         showPassword={showPassword}
         username={username}
       />
-      <VerifyOtpContainer
-        email={verifyingEmail}
+      <OtpVerificationModal
+        destination={verifyingEmail ? maskEmail(verifyingEmail) : ''}
+        isResending={isResending}
+        isSubmitting={isVerifying}
         onClose={() => setVerifyingEmail(null)}
-        onVerified={() => setVerifyingEmail(null)}
-        open={Boolean(verifyingEmail)}
+        onEditDestination={() => setVerifyingEmail(null)}
+        onOtpChange={setOtp}
+        onResend={handleResendOtp}
+        onSubmit={handleVerifyOtpSubmit}
+        open={isOtpOpen}
+        otp={otp}
+        resendSecondsRemaining={resendSecondsRemaining}
       />
     </>
   )

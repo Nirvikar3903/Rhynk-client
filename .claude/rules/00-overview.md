@@ -105,3 +105,4 @@ These docs are dated July 2026 — re-verify against actual server behavior
 - [[08-music-rooms]] — provider adapter pattern, NTP-style client sync algorithm
 - [[09-git-env-workflow]] — env vars (`VITE_*`), git hygiene, no Docker, dev scripts
 - [[10-task-discipline]] — do exactly what the task asks, no scope creep, no fabricated facts
+- [[11-modal-flow-pattern]] — CommonModal shared shell, folding single-caller modal-flow containers into the caller

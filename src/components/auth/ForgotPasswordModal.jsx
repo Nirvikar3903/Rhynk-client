@@ -1,146 +1,60 @@
-import { Box, Dialog, IconButton, Typography, Divider, Link, InputAdornment, alpha } from '@mui/material'
-import CloseIcon from '@mui/icons-material/Close'
+import { Box, Typography, Divider, Link, InputAdornment } from '@mui/material'
 import LockResetIcon from '@mui/icons-material/LockReset'
-import PersonIcon from '@mui/icons-material/Person'
 import MailIcon from '@mui/icons-material/Mail'
 import SendIcon from '@mui/icons-material/Send'
-import AppButtonComponent from 'components/mui/AppButtonComponent'
 import AppTextFieldComponent from 'components/mui/AppTextFieldComponent'
+import CommonModal from 'components/common/CommonModal'
 
-// POST /auth/forgot-password/request takes { username, email } — no phone
-// path, unlike the original mock's "Email or Phone" copy (narrowed to match
-// the real contract, see .claude/rules/06-auth-security.md "don't invent a
+// POST /auth/forgot-password/request takes { email } only — no username, no
+// phone path (narrowed to match the real contract, confirmed against the
+// live server — see .claude/rules/06-auth-security.md "don't invent a
 // different auth flow shape; match this one").
-const ForgotPasswordModal = ({
-  open,
-  onClose,
-  username,
-  onUsernameChange,
-  email,
-  onEmailChange,
-  onSubmit,
-  isSubmitting = false,
-}) => {
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    onSubmit()
-  }
-
+const ForgotPasswordModal = ({ open, onClose, email, onEmailChange, onSubmit, isSubmitting = false }) => {
   return (
-    <Dialog
-      fullWidth
-      maxWidth="xs"
-      onClose={onClose}
-      open={open}
-      slotProps={{
-        paper: {
-          sx: {
-            position: 'relative',
-            borderRadius: 2,
-            p: { xs: 3, sm: 4 },
-            bgcolor: (t) => alpha(t.palette.background.paper, 0.95),
-            backdropFilter: 'blur(12px)',
-          },
-        },
-      }}
-    >
-      <IconButton
-        aria-label="Close"
-        onClick={onClose}
-        size="small"
-        sx={{ position: 'absolute', top: 12, right: 12 }}
-      >
-        <CloseIcon fontSize="small" />
-      </IconButton>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Box
-          sx={{
-            width: 56,
-            height: 56,
-            borderRadius: 2,
-            bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
-            color: 'primary.main',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 2,
-          }}
-        >
-          <LockResetIcon />
-        </Box>
-
-        <Typography sx={{ textAlign: 'center', letterSpacing: '-0.02em', mb: 1 }} variant="h2">
-          Reset your password.
-        </Typography>
-        <Typography color="text.secondary" sx={{ textAlign: 'center', maxWidth: 320, mb: 4 }} variant="body1">
-          We&apos;ll send a reset code to your registered email.
-        </Typography>
-
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}
-        >
-          <Box>
-            <Typography color="text.secondary" component="label" sx={{ mb: 0.5, display: 'block' }} variant="body2">
-              Username
-            </Typography>
-            <AppTextFieldComponent
-              onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder="e.g. john_doe"
-              required
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              type="text"
-              value={username}
-            />
-          </Box>
-
-          <Box>
-            <Typography color="text.secondary" component="label" sx={{ mb: 0.5, display: 'block' }} variant="body2">
-              Email
-            </Typography>
-            <AppTextFieldComponent
-              onChange={(e) => onEmailChange(e.target.value)}
-              placeholder="e.g. name@company.com"
-              required
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MailIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              type="email"
-              value={email}
-            />
-          </Box>
-
-          <AppButtonComponent endIcon={<SendIcon fontSize="small" />} fullWidth loading={isSubmitting} size="large" type="submit">
-            Send reset code
-          </AppButtonComponent>
-
-          <Divider />
-
-          <Typography color="text.secondary" sx={{ textAlign: 'center' }} variant="caption">
+    <CommonModal
+      ctaIcon={<SendIcon fontSize="small" />}
+      ctaLabel="Send reset code"
+      ctaLoading={isSubmitting}
+      footer={
+        <>
+          <Divider sx={{ width: '100%', mt: 3 }} />
+          <Typography color="text.secondary" sx={{ textAlign: 'center', width: '100%', mt: 3 }} variant="caption">
             Still having trouble?{' '}
             <Link href="#" sx={{ fontWeight: 700 }} underline="hover">
               Contact Support
             </Link>
           </Typography>
-        </Box>
+        </>
+      }
+      heading="Reset your password."
+      icon={<LockResetIcon />}
+      onClose={onClose}
+      onSubmit={onSubmit}
+      open={open}
+      subheading="We'll send a reset code to your registered email."
+    >
+      <Box sx={{ width: '100%' }}>
+        <Typography color="text.secondary" component="label" sx={{ mb: 0.5, display: 'block' }} variant="body2">
+          Email
+        </Typography>
+        <AppTextFieldComponent
+          onChange={(e) => onEmailChange(e.target.value)}
+          placeholder="e.g. name@company.com"
+          required
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <MailIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+          type="email"
+          value={email}
+        />
       </Box>
-    </Dialog>
+    </CommonModal>
   )
 }
 
