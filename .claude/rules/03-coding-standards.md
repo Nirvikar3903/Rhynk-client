@@ -37,7 +37,7 @@ not something already configured.
 ```javascript
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from 'react-toastify'
 import { useAuthStore } from 'app/store/auth.store'
 ```
 

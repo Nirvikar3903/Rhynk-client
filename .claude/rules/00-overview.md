@@ -36,7 +36,7 @@ Trust `package.json` over the PRD:
 | Styling | Tailwind CSS 3.x + shadcn/ui | **MUI (Material-UI)** — team decision, supersedes the PRD's Tailwind/shadcn mention entirely. `@mui/material`, `@mui/icons-material`, `@emotion/react`, `@emotion/styled` installed. SX-prop-based styling, a shared `src/theme/index.js` theme object (not yet created), wrapper components under `src/components/mui/` (currently empty) |
 | Global state / server state | Zustand 4.x + TanStack Query | **Redux Toolkit + RTK Query** — team decision, supersedes both the PRD and the `package.json` snapshot below. `zustand` has been removed |
 | Realtime | Socket.IO client 4.x | matches — `socket.io-client ^4.8.3`, installed but **unwired** (no `src/app/socket.js` yet) |
-| Toasts | not specified | `sonner` is installed |
+| Toasts | not specified | `react-toastify` is installed (`sonner` was used initially, then swapped out) |
 
 Don't silently "correct" code back to what the PRD says — if a PRD-vs-reality
 mismatch matters for what you're building, flag it and ask, don't guess.

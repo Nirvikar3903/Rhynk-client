@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { BrowserRouter } from 'react-router-dom'
-import { Toaster } from 'sonner'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import { createDynamicTheme } from 'theme'
 import useTheme from 'hooks/useTheme.hook'
 import AppRouter from 'router'
@@ -16,7 +17,7 @@ const App = () => {
       <BrowserRouter>
         <AppRouter />
       </BrowserRouter>
-      <Toaster position="top-center" richColors />
+      <ToastContainer position="top-center" theme={isDarkMode ? 'dark' : 'light'} />
     </ThemeProvider>
   )
 }

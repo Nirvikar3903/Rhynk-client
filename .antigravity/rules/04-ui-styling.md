@@ -84,11 +84,14 @@ See [[create-mui-component]] for the concrete template and naming
 
 ## Toasts
 
-`sonner` is installed for toast notifications — keep using it (it's
-independent of the UI library choice) rather than reaching for MUI's
-`Snackbar`/`Alert` for transient notifications. Use it for surfacing
-`OTP_INVALID`, `SESSION_REVOKED`, etc. from the auth API — see
-[[06-auth-security]].
+`react-toastify` is installed for toast notifications (`sonner` was removed —
+this repo previously used it, but the team switched) — keep using
+`react-toastify` (it's independent of the UI library choice) rather than
+reaching for MUI's `Snackbar`/`Alert` for transient notifications. The app
+root (`App.jsx`) renders a single `<ToastContainer />`; containers just
+`import { toast } from 'react-toastify'` and call `toast.success`/
+`toast.error`/`toast.info`. Use it for surfacing `OTP_INVALID`,
+`SESSION_REVOKED`, etc. from the auth API — see [[06-auth-security]].
 
 ## Icons
 

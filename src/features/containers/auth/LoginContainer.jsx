@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { toast } from 'react-toastify'
 import LoginForm from 'components/auth/LoginForm'
 import ForgotPasswordModal from 'components/auth/ForgotPasswordModal'
 import OtpVerificationModal from 'components/common/OtpVerificationModal'

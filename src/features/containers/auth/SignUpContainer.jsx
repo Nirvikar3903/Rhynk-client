@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import SignUpForm from 'components/auth/SignUpForm'
 import OtpVerificationModal from 'components/common/OtpVerificationModal'
 import { useRegisterMutation, useVerifyOtpMutation, useResendOtpMutation } from 'store/api/auth.apislice'
@@ -21,6 +22,7 @@ const maskEmail = (email) => {
 // Phone signup is designed but not wired — commented out in SignUpForm,
 // not removed, until the backend supports a phone-based flow.
 const SignUpContainer = () => {
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -82,6 +84,7 @@ const SignUpContainer = () => {
       await verifyOtp({ email: verifyingEmail, otp }).unwrap()
       toast.success('Account verified! You can now log in.')
       setVerifyingEmail(null)
+      navigate('/login')
     } catch (err) {
       toast.error(err?.data?.code ?? 'Invalid or expired code. Please try again.')
     }
