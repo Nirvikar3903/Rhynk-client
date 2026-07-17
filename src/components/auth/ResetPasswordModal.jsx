@@ -1,23 +1,27 @@
-import { Box, Dialog, IconButton, Typography, Divider, Link, InputAdornment, alpha } from '@mui/material'
+import { Box, Dialog, IconButton, Typography, InputAdornment, alpha } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import LockResetIcon from '@mui/icons-material/LockReset'
-import PersonIcon from '@mui/icons-material/Person'
 import MailIcon from '@mui/icons-material/Mail'
-import SendIcon from '@mui/icons-material/Send'
+import LockIcon from '@mui/icons-material/Lock'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import AppButtonComponent from 'components/mui/AppButtonComponent'
 import AppTextFieldComponent from 'components/mui/AppTextFieldComponent'
 
-// POST /auth/forgot-password/request takes { username, email } — no phone
-// path, unlike the original mock's "Email or Phone" copy (narrowed to match
-// the real contract, see .claude/rules/06-auth-security.md "don't invent a
-// different auth flow shape; match this one").
-const ForgotPasswordModal = ({
+// Final step of the forgot-password flow — POST /auth/forgot-password/reset
+// takes { email, resetToken, newPassword }. resetToken comes from the
+// previous verify step (ForgotPasswordContainer), not from anything typed
+// here, so this modal only ever asks for the two fields the user actually
+// provides.
+const ResetPasswordModal = ({
   open,
   onClose,
-  username,
-  onUsernameChange,
   email,
   onEmailChange,
+  newPassword,
+  onNewPasswordChange,
+  showNewPassword,
+  onToggleShowNewPassword,
   onSubmit,
   isSubmitting = false,
 }) => {
@@ -71,10 +75,10 @@ const ForgotPasswordModal = ({
         </Box>
 
         <Typography sx={{ textAlign: 'center', letterSpacing: '-0.02em', mb: 1 }} variant="h2">
-          Reset your password.
+          Set a new password.
         </Typography>
         <Typography color="text.secondary" sx={{ textAlign: 'center', maxWidth: 320, mb: 4 }} variant="body1">
-          We&apos;ll send a reset code to your registered email.
+          Choose a new password for your account.
         </Typography>
 
         <Box
@@ -82,28 +86,6 @@ const ForgotPasswordModal = ({
           onSubmit={handleSubmit}
           sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}
         >
-          <Box>
-            <Typography color="text.secondary" component="label" sx={{ mb: 0.5, display: 'block' }} variant="body2">
-              Username
-            </Typography>
-            <AppTextFieldComponent
-              onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder="e.g. john_doe"
-              required
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              type="text"
-              value={username}
-            />
-          </Box>
-
           <Box>
             <Typography color="text.secondary" component="label" sx={{ mb: 0.5, display: 'block' }} variant="body2">
               Email
@@ -126,22 +108,42 @@ const ForgotPasswordModal = ({
             />
           </Box>
 
-          <AppButtonComponent endIcon={<SendIcon fontSize="small" />} fullWidth loading={isSubmitting} size="large" type="submit">
-            Send reset code
+          <Box>
+            <Typography color="text.secondary" component="label" sx={{ mb: 0.5, display: 'block' }} variant="body2">
+              New Password
+            </Typography>
+            <AppTextFieldComponent
+              onChange={(e) => onNewPasswordChange(e.target.value)}
+              placeholder="At least 8 characters"
+              required
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton edge="end" onClick={onToggleShowNewPassword} size="small">
+                        {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              type={showNewPassword ? 'text' : 'password'}
+              value={newPassword}
+            />
+          </Box>
+
+          <AppButtonComponent fullWidth loading={isSubmitting} size="large" type="submit">
+            Reset password
           </AppButtonComponent>
-
-          <Divider />
-
-          <Typography color="text.secondary" sx={{ textAlign: 'center' }} variant="caption">
-            Still having trouble?{' '}
-            <Link href="#" sx={{ fontWeight: 700 }} underline="hover">
-              Contact Support
-            </Link>
-          </Typography>
         </Box>
       </Box>
     </Dialog>
   )
 }
 
-export default ForgotPasswordModal
+export default ResetPasswordModal

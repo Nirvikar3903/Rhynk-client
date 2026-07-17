@@ -1,6 +1,6 @@
 import { baseApi } from './baseApi'
 import { setSession, clearSession } from '../slices/auth.slice'
-import { parseRegisterResponse, parseSessionResponse } from '../parsers/auth.parsers'
+import { parseRegisterResponse, parseSessionResponse, parseResetTokenResponse } from '../parsers/auth.parsers'
 import { getDeviceId } from './deviceId'
 
 // deviceType is always WEB since this is a web client (see
@@ -15,17 +15,15 @@ import { getDeviceId } from './deviceId'
 // auth flow shape; match this one").
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // Payload confirmed directly by the team as { username, email, password,
-    // name } — note docs/AUTH_MODULE.md §4.1 only lists { username, email,
-    // password } (no `name`); that doc is stale on this point, this is the
-    // real contract. `username` is derived client-side from the email (see
-    // SignUpContainer) since the current design has no dedicated username
-    // field.
+    // { username, email, password } — matches docs/AUTH_MODULE.md §4.1
+    // exactly. There's no `name` field; the user types their own username
+    // directly (see SignUpForm/SignUpContainer) rather than one being
+    // derived client-side.
     register: builder.mutation({
-      query: ({ username, email, password, name }) => ({
+      query: ({ username, email, password }) => ({
         url: '/auth/register',
         method: 'POST',
-        body: { username, email, password, name },
+        body: { username, email, password },
       }),
       transformResponse: parseRegisterResponse,
     }),
@@ -75,6 +73,39 @@ export const authApi = baseApi.injectEndpoints({
         dispatch(clearSession())
       },
     }),
+
+    // Not part of docs/AUTH_MODULE.md's 6-endpoint contract — a separate
+    // forgot-password flow confirmed directly by the team. Request takes
+    // { username, email } (no phone, despite ForgotPasswordModal's original
+    // "Email or Phone" mock copy — see .claude/rules/06-auth-security.md's
+    // "don't invent a different auth flow shape" for why the field was
+    // narrowed to match).
+    forgotPasswordRequest: builder.mutation({
+      query: ({ username, email }) => ({
+        url: '/auth/forgot-password/request',
+        method: 'POST',
+        body: { username, email },
+      }),
+    }),
+
+    // Returns the resetToken the following reset call needs — see the
+    // caveat on parseResetTokenResponse.
+    forgotPasswordVerify: builder.mutation({
+      query: ({ email, otp }) => ({
+        url: '/auth/forgot-password/verify',
+        method: 'POST',
+        body: { email, otp },
+      }),
+      transformResponse: parseResetTokenResponse,
+    }),
+
+    forgotPasswordReset: builder.mutation({
+      query: ({ email, resetToken, newPassword }) => ({
+        url: '/auth/forgot-password/reset',
+        method: 'POST',
+        body: { email, resetToken, newPassword },
+      }),
+    }),
   }),
 })
 
@@ -84,4 +115,7 @@ export const {
   useLoginMutation,
   useResendOtpMutation,
   useLogoutMutation,
+  useForgotPasswordRequestMutation,
+  useForgotPasswordVerifyMutation,
+  useForgotPasswordResetMutation,
 } = authApi

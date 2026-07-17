@@ -39,8 +39,8 @@ const GoogleIcon = () => (
 )
 
 const SignUpForm = ({
-  name,
-  onNameChange,
+  username,
+  onUsernameChange,
   email,
   onEmailChange,
   password,
@@ -168,12 +168,12 @@ const SignUpForm = ({
         */}
 
         <AppTextFieldComponent
-          label="Full Name"
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Jordan Rivera"
+          label="Username"
+          onChange={(e) => onUsernameChange(e.target.value)}
+          placeholder="jordan_rivera"
           required
           type="text"
-          value={name}
+          value={username}
         />
 
         <AppTextFieldComponent

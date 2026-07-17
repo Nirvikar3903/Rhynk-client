@@ -27,3 +27,13 @@ export const parseTokensResponse = (response) => {
   const { accessToken, refreshToken } = response.data
   return { accessToken, refreshToken }
 }
+
+// POST /auth/forgot-password/verify response — data: { resetToken }, needed by
+// the following /auth/forgot-password/reset call. Not directly confirmed
+// against a real OTP (no live inbox to complete one) — this follows the same
+// { data: {...} } envelope every other endpoint uses; adjust here first if
+// the real field name/shape turns out to differ.
+export const parseResetTokenResponse = (response) => {
+  if (!response?.data) return null
+  return { resetToken: response.data.resetToken }
+}
