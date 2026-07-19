@@ -17,7 +17,7 @@ const App = () => {
       <BrowserRouter>
         <AppRouter />
       </BrowserRouter>
-      <ToastContainer position="top-center" theme={isDarkMode ? 'dark' : 'light'} />
+      <ToastContainer position="top-right" theme={isDarkMode ? 'dark' : 'light'} />
     </ThemeProvider>
   )
 }
