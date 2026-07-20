@@ -11,6 +11,7 @@ const FILTERS = ['All', 'Unread', 'Favourites', 'Groups']
 // (see [[create-component]]).
 const ConversationListPanel = ({
   conversations,
+  activeConversationId,
   activeFilter,
   onFilterChange,
   onSearchClick,
@@ -66,7 +67,7 @@ const ConversationListPanel = ({
         </Box>
       </Box>
 
-      <Box sx={{ flex: 1, overflowY: 'auto', px: 1.5, pb: 3 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', pl: 1.5, pr: 0, pb: 3 }}>
         <Box
           component="button"
           onClick={onArchivedClick}
@@ -79,7 +80,7 @@ const ConversationListPanel = ({
             py: 1.5,
             mb: 0.5,
             border: 0,
-            borderRadius: 3,
+            borderRadius: '12px 0 0 12px',
             bgcolor: 'transparent',
             color: 'text.secondary',
             cursor: 'pointer',
@@ -97,6 +98,7 @@ const ConversationListPanel = ({
           {conversations.map((conversation) => (
             <ConversationListItem
               conversation={conversation}
+              isActive={conversation.id === activeConversationId}
               key={conversation.id}
               onClick={() => onSelectConversation(conversation)}
             />

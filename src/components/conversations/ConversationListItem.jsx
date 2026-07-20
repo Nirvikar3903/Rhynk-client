@@ -1,10 +1,10 @@
 import { memo } from 'react'
-import { Avatar, Badge, Box, Typography } from '@mui/material'
+import { Avatar, Badge, Box, Typography, alpha } from '@mui/material'
 import PushPinIcon from '@mui/icons-material/PushPin'
 
 // One row in the conversation list — props-only, no fetching/selection
 // state of its own (see [[create-component]]).
-const ConversationListItem = ({ conversation, onClick }) => {
+const ConversationListItem = ({ conversation, isActive = false, onClick }) => {
   const { name, initials, avatarColor, timestamp, preview, isOnline, isPinned, unreadCount = 0 } = conversation
   const hasUnread = unreadCount > 0
 
@@ -16,10 +16,12 @@ const ConversationListItem = ({ conversation, onClick }) => {
         alignItems: 'center',
         gap: 1.5,
         p: 1.5,
-        borderRadius: 3,
+        borderRadius: '12px 0 0 12px',
         cursor: 'pointer',
-        bgcolor: isPinned ? 'action.hover' : 'transparent',
-        '&:hover': { bgcolor: 'action.hover' },
+        bgcolor: isActive ? (t) => alpha(t.palette.primary.main, 0.08) : isPinned ? 'action.hover' : 'transparent',
+        borderRight: '3px solid',
+        borderRightColor: isActive ? 'primary.main' : 'transparent',
+        '&:hover': { bgcolor: isActive ? undefined : 'action.hover' },
       }}
     >
       <Badge

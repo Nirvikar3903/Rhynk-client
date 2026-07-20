@@ -63,7 +63,7 @@ export const colors = {
       text: '#FFFFFF',
     },
     received: {
-      light: { background: '#FFFFFF', text: '#14141A' },
+      light: { background: '#EAE9F3', text: '#14141A' },
       dark: { background: '#1C1C22', text: '#F5F5F7' },
     },
   },

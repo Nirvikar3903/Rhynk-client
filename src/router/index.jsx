@@ -6,6 +6,7 @@ const LandingPage = lazy(() => import('pages/LandingPage'))
 const SignUpPage = lazy(() => import('pages/auth/SignUpPage'))
 const LoginPage = lazy(() => import('pages/auth/LoginPage'))
 const HomePage = lazy(() => import('pages/HomePage'))
+const NewGroupPage = lazy(() => import('pages/groups/NewGroupPage'))
 
 const AppRouter = () => (
   <Suspense fallback={null}>
@@ -15,6 +16,7 @@ const AppRouter = () => (
       <Route element={<LoginPage />} path="/login" />
       <Route element={<RequireAuth />}>
         <Route element={<HomePage />} path="/home" />
+        <Route element={<NewGroupPage />} path="/groups/new" />
       </Route>
     </Routes>
   </Suspense>
