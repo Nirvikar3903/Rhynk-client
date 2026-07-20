@@ -1,37 +1,32 @@
 import { Box } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import doodleImg from 'assets/doodle.jpg'
 
 // Signature Rhynk background: thin-line musical notes / speech bubbles /
-// waveforms / dots tiled at 4-6% opacity (see DESIGN.md). Reads its
-// color/opacity from theme.palette.custom.doodle (src/theme/index.js) rather
-// than hardcoding them here.
-const DoodleBackground = () => {
+// waveforms / dots tiled at a very light, professional opacity.
+const DoodleBackground = ({ position = 'fixed' }) => {
   const theme = useTheme()
-  const doodle = theme.palette.custom?.doodle ?? { color: theme.palette.primary.main, opacity: 0.05 }
+  const isDark = theme.palette.mode === 'dark'
+
+  // Keep it extremely subtle and light so text stays highly readable
+  const opacity = isDark ? 0.08 : 0.20
 
   return (
     <Box
       aria-hidden
       sx={{
-        position: 'fixed',
+        position: position,
         inset: 0,
         zIndex: 0,
         pointerEvents: 'none',
-        opacity: doodle.opacity,
+        backgroundImage: `url(${doodleImg})`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: '360px 360px', // Tile scale
+        opacity: opacity,
+        filter: isDark ? 'invert(1) hue-rotate(180deg)' : 'none',
+        mixBlendMode: isDark ? 'screen' : 'multiply', // Hide background color and preserve lines
       }}
-    >
-      <svg height="100%" width="100%">
-        <defs>
-          <pattern height="100" id="rhynk-doodle" patternUnits="userSpaceOnUse" width="100" x="0" y="0">
-            <path d="M10 10 Q 20 5, 30 15 T 50 10" fill="none" stroke={doodle.color} strokeWidth="2" />
-            <circle cx="70" cy="40" fill={doodle.color} r="3" />
-            <path d="M20 70 L 40 70 M 30 60 L 30 80" stroke={doodle.color} strokeWidth="2" />
-            <rect fill={doodle.color} height="6" rx="2" width="6" x="80" y="80" />
-          </pattern>
-        </defs>
-        <rect fill="url(#rhynk-doodle)" height="100%" width="100%" />
-      </svg>
-    </Box>
+    />
   )
 }
 

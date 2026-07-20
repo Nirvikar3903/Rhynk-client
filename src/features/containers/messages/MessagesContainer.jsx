@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 import ChatThreadPanel from 'components/messages/ChatThreadPanel'
+import ForwardMessageModal from 'components/messages/ForwardMessageModal'
 
 // Hardcoded for now — there's no messages RTK Query endpoint yet (see
 // [[05-state-data-layer]]); once one exists this becomes
@@ -10,11 +11,29 @@ const SEED_MESSAGES = {
   1: [
     { id: 'm1', sender: 'them', senderInitials: 'ER', text: "Hey! Did you get a chance to listen to the demo I sent over this morning? I think the bassline needs some work.", timestamp: '10:30 AM' },
     { id: 'm2', sender: 'me', text: "Just finished listening to it. You're right about the low-end. It's a bit muddy around 200Hz.", timestamp: '10:35 AM', seen: true },
-    { id: 'm3', sender: 'them', senderInitials: 'ER', text: "Exactly! I'll try cleaning that up. Want to hop in a Music Room to iterate together live?", timestamp: '10:38 AM' },
+    { id: 'm3', sender: 'them', senderInitials: 'ER', text: "Exactly! I'll try cleaning that up. Want to hop in a Music Room to iterate together live?", timestamp: '10:38 AM', replyTo: { senderName: 'You', text: "Just finished listening to it. You're right about the low-end. It's a bit muddy around 200Hz." } },
     { id: 'm4', sender: 'me', text: "Perfect. Let's do it. I'll join in 5 mins!", timestamp: '10:41 AM', seen: true },
-    { id: 'm5', sender: 'them', senderInitials: 'ER', text: 'That new track is incredible!', timestamp: '10:42 AM' },
+    { id: 'm5', sender: 'them', senderInitials: 'ER', text: 'That new track is incredible!', timestamp: '10:42 AM', reactions: ['👍'] },
   ],
 }
+
+// Hardcoded for now — there's no contacts/groups RTK Query endpoint yet
+// (see [[05-state-data-layer]]); once one exists these become queries and
+// this data goes away.
+const RECENT_FORWARD_TARGETS = [
+  { id: 'sarah', name: 'Sarah', initials: 'S', avatarColor: 'primary.main' },
+  { id: 'marcus', name: 'Marcus', initials: 'M', avatarColor: 'text.disabled' },
+  { id: 'alex', name: 'Alex', initials: 'A', avatarColor: 'info.main' },
+  { id: 'elena', name: 'Elena', initials: 'E', avatarColor: 'warning.main' },
+  { id: 'james', name: 'James', initials: 'JC', avatarColor: 'success.main' },
+]
+
+const ALL_FORWARD_TARGETS = [
+  { id: 'daniel', name: 'Daniel Chen', subtitle: 'Online', initials: 'DC', avatarColor: 'secondary.main', isOnline: true },
+  { id: 'synthwave', name: 'Synth Wave Community', subtitle: '1,240 members', initials: 'SW', avatarColor: 'warning.main' },
+  { id: 'maya', name: 'Maya Ishikawa', subtitle: 'Last seen 5m ago', initials: 'MI', avatarColor: 'info.main' },
+  { id: 'leo', name: 'Leo Rodriguez', subtitle: 'Recording...', initials: 'LR', avatarColor: 'error.main' },
+]
 
 // Owns the active thread for whichever conversation ConversationsContainer
 // has selected — matches the "opening a thread is the messages domain's
@@ -23,33 +42,145 @@ const MessagesContainer = ({ conversation }) => {
   const [messagesByConversation, setMessagesByConversation] = useState(SEED_MESSAGES)
   const [draft, setDraft] = useState('')
 
+  const [forwardingMessage, setForwardingMessage] = useState(null)
+  const [forwardSearch, setForwardSearch] = useState('')
+  const [forwardSelectedIds, setForwardSelectedIds] = useState([])
+  const [forwardNote, setForwardNote] = useState('')
+  const [replyingToMessage, setReplyingToMessage] = useState(null)
+
   const messages = messagesByConversation[conversation.id] ?? []
 
   const handleSend = () => {
     const text = draft.trim()
     if (!text) return
 
-    const newMessage = { id: `local-${Date.now()}`, sender: 'me', text, timestamp: 'Just now', seen: false }
+    const replyTo = replyingToMessage
+      ? {
+          senderName: replyingToMessage.sender === 'me' ? 'You' : conversation.name,
+          text: replyingToMessage.text,
+        }
+      : undefined
+
+    const newMessage = { id: `local-${Date.now()}`, sender: 'me', text, timestamp: 'Just now', seen: false, replyTo }
     setMessagesByConversation((prev) => ({
       ...prev,
       [conversation.id]: [...(prev[conversation.id] ?? []), newMessage],
     }))
     setDraft('')
+    setReplyingToMessage(null)
   }
 
   const handleNotImplemented = (label) => toast.info(`${label} is not implemented yet.`)
 
+  const handleOpenForward = (message) => {
+    setForwardingMessage(message)
+    setForwardSearch('')
+    setForwardSelectedIds([])
+    setForwardNote('')
+  }
+
+  const handleCloseForward = () => setForwardingMessage(null)
+
+  const handleToggleForwardTarget = (id) => {
+    setForwardSelectedIds((prev) => (prev.includes(id) ? prev.filter((existingId) => existingId !== id) : [...prev, id]))
+  }
+
+  const filteredForwardContacts = useMemo(() => {
+    const query = forwardSearch.trim().toLowerCase()
+    if (!query) return ALL_FORWARD_TARGETS
+    return ALL_FORWARD_TARGETS.filter((target) => target.name.toLowerCase().includes(query))
+  }, [forwardSearch])
+
+  const selectedForwardTargets = useMemo(
+    () => [...RECENT_FORWARD_TARGETS, ...ALL_FORWARD_TARGETS].filter((target) => forwardSelectedIds.includes(target.id)),
+    [forwardSelectedIds],
+  )
+
+  const handleSendForward = () => {
+    const count = selectedForwardTargets.length
+    toast.success(`Forwarded to ${count} recipient${count === 1 ? '' : 's'}.`)
+    setForwardingMessage(null)
+  }
+
+  const handleReactMessage = (message, emoji) => {
+    setMessagesByConversation((prev) => {
+      const list = prev[conversation.id] ?? []
+      const updated = list.map((msg) => {
+        if (msg.id === message.id) {
+          const currentReactions = msg.reactions || []
+          const exists = currentReactions.includes(emoji)
+          const newReactions = exists
+            ? currentReactions.filter((r) => r !== emoji)
+            : [...currentReactions, emoji]
+          return { ...msg, reactions: newReactions }
+        }
+        return msg
+      })
+      return {
+        ...prev,
+        [conversation.id]: updated,
+      }
+    })
+  }
+
+  const handleDeleteMessage = (message) => {
+    setMessagesByConversation((prev) => ({
+      ...prev,
+      [conversation.id]: (prev[conversation.id] ?? []).filter((existing) => existing.id !== message.id),
+    }))
+  }
+
+  const handleMessageMenuAction = (action, message) => {
+    if (action === 'copy') {
+      navigator.clipboard
+        .writeText(message.text)
+        .then(() => toast.success('Copied to clipboard.'))
+        .catch(() => toast.error('Could not copy message.'))
+      return
+    }
+    if (action === 'delete') return handleDeleteMessage(message)
+    if (action === 'reply') {
+      setReplyingToMessage(message)
+      return
+    }
+    handleNotImplemented(action)
+  }
+
   return (
-    <ChatThreadPanel
-      conversation={conversation}
-      draft={draft}
-      messages={messages}
-      onCall={() => handleNotImplemented('Voice call')}
-      onDraftChange={setDraft}
-      onInfo={() => handleNotImplemented('Conversation info')}
-      onSend={handleSend}
-      onVideoCall={() => handleNotImplemented('Video call')}
-    />
+    <>
+      <ChatThreadPanel
+        conversation={conversation}
+        draft={draft}
+        messages={messages}
+        onCall={() => handleNotImplemented('Voice call')}
+        onDraftChange={setDraft}
+        onForwardMessage={handleOpenForward}
+        onInfo={() => handleNotImplemented('Conversation info')}
+        onMessageMenuAction={handleMessageMenuAction}
+        onReactMessage={handleReactMessage}
+        onSend={handleSend}
+        onVideoCall={() => handleNotImplemented('Video call')}
+        replyingToMessage={replyingToMessage}
+        onCancelReply={() => setReplyingToMessage(null)}
+      />
+
+      <ForwardMessageModal
+        canSubmit={selectedForwardTargets.length > 0}
+        contacts={filteredForwardContacts}
+        draftMessage={forwardNote}
+        messagePreview={forwardingMessage?.text ?? ''}
+        onClose={handleCloseForward}
+        onDraftMessageChange={setForwardNote}
+        onSearchChange={setForwardSearch}
+        onSubmit={handleSendForward}
+        onToggleTarget={handleToggleForwardTarget}
+        open={Boolean(forwardingMessage)}
+        recentContacts={RECENT_FORWARD_TARGETS}
+        searchQuery={forwardSearch}
+        selectedIds={forwardSelectedIds}
+        selectedTargets={selectedForwardTargets}
+      />
+    </>
   )
 }
 
