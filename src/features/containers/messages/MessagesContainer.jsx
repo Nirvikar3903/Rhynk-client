@@ -47,10 +47,17 @@ const MessagesContainer = ({ conversation }) => {
   const [forwardSelectedIds, setForwardSelectedIds] = useState([])
   const [forwardNote, setForwardNote] = useState('')
   const [replyingToMessage, setReplyingToMessage] = useState(null)
+  const [activeEffect, setActiveEffect] = useState(null)
 
   const messages = messagesByConversation[conversation.id] ?? []
 
-  const handleSend = () => {
+  // effectId is only set when the message was sent via the long-press
+  // "send with effect" menu (see ChatThreadPanel/SendEffectMenu) — a plain
+  // Enter/click send calls this with no argument. There's no backend/socket
+  // layer yet (see [[07-realtime-sockets]]), so there's no real recipient
+  // session to trigger playback for; the effect plays once, immediately, in
+  // the sender's own view.
+  const handleSend = (effectId) => {
     const text = draft.trim()
     if (!text) return
 
@@ -61,14 +68,17 @@ const MessagesContainer = ({ conversation }) => {
         }
       : undefined
 
-    const newMessage = { id: `local-${Date.now()}`, sender: 'me', text, timestamp: 'Just now', seen: false, replyTo }
+    const newMessage = { id: `local-${Date.now()}`, sender: 'me', text, timestamp: 'Just now', seen: false, replyTo, effect: effectId }
     setMessagesByConversation((prev) => ({
       ...prev,
       [conversation.id]: [...(prev[conversation.id] ?? []), newMessage],
     }))
     setDraft('')
+    if (effectId) setActiveEffect(effectId)
     setReplyingToMessage(null)
   }
+
+  const handleEffectComplete = () => setActiveEffect(null)
 
   const handleNotImplemented = (label) => toast.info(`${label} is not implemented yet.`)
 
@@ -162,6 +172,8 @@ const MessagesContainer = ({ conversation }) => {
         onVideoCall={() => handleNotImplemented('Video call')}
         replyingToMessage={replyingToMessage}
         onCancelReply={() => setReplyingToMessage(null)}
+        activeEffect={activeEffect}
+        onEffectComplete={handleEffectComplete}
       />
 
       <ForwardMessageModal

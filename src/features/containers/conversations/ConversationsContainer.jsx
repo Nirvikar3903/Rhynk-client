@@ -43,6 +43,7 @@ const ConversationsContainer = () => {
   const [activeFilter, setActiveFilter] = useState('All')
   const [selectedConversationId, setSelectedConversationId] = useState(null)
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
+  const [isViewingArchived, setIsViewingArchived] = useState(false)
 
   const handleNotImplemented = (label) => toast.info(`${label} is not implemented yet.`)
 
@@ -110,13 +111,61 @@ const ConversationsContainer = () => {
     setSelectedConversationId(newDirect.id)
   }
 
+  const handleConversationMenuAction = (action, conversation) => {
+    if (action === 'delete') {
+      setConversations((prev) => prev.filter((c) => c.id !== conversation.id))
+      if (selectedConversationId === conversation.id) setSelectedConversationId(null)
+      toast.success(`Chat with ${conversation.name} deleted.`)
+      return
+    }
+
+    setConversations((prev) =>
+      prev.map((c) => {
+        if (c.id !== conversation.id) return c
+        switch (action) {
+          case 'markRead':
+            return { ...c, unreadCount: 0, isUnread: false }
+          case 'markUnread':
+            return { ...c, isUnread: true }
+          case 'pin':
+            return { ...c, isPinned: true }
+          case 'unpin':
+            return { ...c, isPinned: false }
+          case 'mute':
+            return { ...c, isMuted: true }
+          case 'unmute':
+            return { ...c, isMuted: false }
+          case 'archive':
+            return { ...c, isArchived: true }
+          case 'unarchive':
+            return { ...c, isArchived: false }
+          default:
+            return c
+        }
+      }),
+    )
+
+    if (action === 'archive') toast.success(`Chat with ${conversation.name} archived.`)
+    if (action === 'unarchive') toast.success(`Chat with ${conversation.name} unarchived.`)
+  }
+
+  // Pinned conversations float to the top, mock order preserved otherwise.
+  const sortPinnedFirst = (list) => [...list].sort((a, b) => (b.isPinned === true) - (a.isPinned === true))
+
   // Filter conversations based on current sidebar filter
-  const filteredConversations = conversations.filter((conversation) => {
-    if (activeFilter === 'Unread') return conversation.unreadCount > 0
-    if (activeFilter === 'Favourites') return conversation.isPinned === true
-    if (activeFilter === 'Groups') return conversation.isGroup === true
-    return true // 'All'
-  })
+  const filteredConversations = sortPinnedFirst(
+    conversations.filter((conversation) => {
+      if (conversation.isArchived) return false
+      if (activeFilter === 'Unread') return conversation.unreadCount > 0 || conversation.isUnread === true
+      if (activeFilter === 'Favourites') return conversation.isPinned === true
+      if (activeFilter === 'Groups') return conversation.isGroup === true
+      return true // 'All'
+    }),
+  )
+
+  const archivedConversations = sortPinnedFirst(conversations.filter((conversation) => conversation.isArchived))
+  const archivedCount = archivedConversations.length
+  const visibleConversations = isViewingArchived ? archivedConversations : filteredConversations
 
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId)
 
@@ -125,9 +174,12 @@ const ConversationsContainer = () => {
       <ConversationListPanel
         activeConversationId={selectedConversationId}
         activeFilter={activeFilter}
-        archivedCount={12}
-        conversations={filteredConversations}
-        onArchivedClick={() => handleNotImplemented('Archived Chats')}
+        archivedCount={archivedCount}
+        conversations={visibleConversations}
+        isShowingArchived={isViewingArchived}
+        onArchivedClick={() => setIsViewingArchived(true)}
+        onBackFromArchived={() => setIsViewingArchived(false)}
+        onConversationMenuAction={handleConversationMenuAction}
         onFilterChange={setActiveFilter}
         onNewMessage={() => setIsNewChatOpen(true)}
         onSearchClick={() => handleNotImplemented('Search')}

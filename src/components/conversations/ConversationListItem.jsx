@@ -1,16 +1,40 @@
-import { memo } from 'react'
-import { Avatar, Badge, Box, Typography, alpha } from '@mui/material'
+import { memo, useState } from 'react'
+import { Avatar, Badge, Box, Menu, MenuItem, Typography, alpha } from '@mui/material'
 import PushPinIcon from '@mui/icons-material/PushPin'
+import MarkChatUnreadIcon from '@mui/icons-material/MarkChatUnread'
+import MarkChatReadIcon from '@mui/icons-material/MarkChatRead'
+import NotificationsOffIcon from '@mui/icons-material/NotificationsOff'
+import ArchiveIcon from '@mui/icons-material/Archive'
+import UnarchiveIcon from '@mui/icons-material/Unarchive'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 
 // One row in the conversation list — props-only, no fetching/selection
-// state of its own (see [[create-component]]).
-const ConversationListItem = ({ conversation, isActive = false, onClick }) => {
-  const { name, initials, avatarColor, timestamp, preview, isOnline, isPinned, unreadCount = 0 } = conversation
-  const hasUnread = unreadCount > 0
+// state of its own (see [[create-component]]). Right-click context-menu
+// open/close is purely presentational UI state, kept local like
+// MessageBubble's own `menuAnchor` (see components/messages/ChatThreadPanel.jsx).
+const ConversationListItem = ({ conversation, isActive = false, onClick, onMenuAction }) => {
+  const { name, initials, avatarColor, timestamp, preview, isOnline, isPinned, isMuted, isArchived, isUnread, unreadCount = 0 } = conversation
+  // "mark as unread" is a manual flag distinct from a real unread count — it
+  // shows a plain dot (see the badge below), not a numbered bubble.
+  const hasUnread = unreadCount > 0 || isUnread === true
+  const [contextMenu, setContextMenu] = useState(null)
+
+  const handleContextMenu = (event) => {
+    event.preventDefault()
+    setContextMenu(contextMenu === null ? { mouseX: event.clientX + 2, mouseY: event.clientY - 6 } : null)
+  }
+
+  const closeContextMenu = () => setContextMenu(null)
+
+  const handleMenuAction = (action) => {
+    closeContextMenu()
+    onMenuAction?.(action, conversation)
+  }
 
   return (
     <Box
       onClick={onClick}
+      onContextMenu={handleContextMenu}
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -50,7 +74,7 @@ const ConversationListItem = ({ conversation, isActive = false, onClick }) => {
               {preview}
             </Typography>
           </Box>
-          {hasUnread && (
+          {unreadCount > 0 ? (
             <Box
               sx={{
                 bgcolor: 'success.main',
@@ -68,9 +92,39 @@ const ConversationListItem = ({ conversation, isActive = false, onClick }) => {
             >
               {unreadCount}
             </Box>
+          ) : (
+            isUnread && <Box sx={{ bgcolor: 'success.main', width: 10, height: 10, borderRadius: '50%', flexShrink: 0 }} />
           )}
         </Box>
       </Box>
+
+      <Menu
+        anchorPosition={contextMenu !== null ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
+        anchorReference="anchorPosition"
+        onClose={closeContextMenu}
+        open={contextMenu !== null}
+      >
+        <MenuItem onClick={() => handleMenuAction(hasUnread ? 'markRead' : 'markUnread')}>
+          {hasUnread ? <MarkChatReadIcon fontSize="small" sx={{ mr: 1.5 }} /> : <MarkChatUnreadIcon fontSize="small" sx={{ mr: 1.5 }} />}
+          {hasUnread ? 'Mark as read' : 'Mark as unread'}
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction(isPinned ? 'unpin' : 'pin')}>
+          <PushPinIcon fontSize="small" sx={{ mr: 1.5 }} />
+          {isPinned ? 'Unpin' : 'Pin'}
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction(isMuted ? 'unmute' : 'mute')}>
+          <NotificationsOffIcon fontSize="small" sx={{ mr: 1.5 }} />
+          {isMuted ? 'Unmute' : 'Mute'}
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction(isArchived ? 'unarchive' : 'archive')}>
+          {isArchived ? <UnarchiveIcon fontSize="small" sx={{ mr: 1.5 }} /> : <ArchiveIcon fontSize="small" sx={{ mr: 1.5 }} />}
+          {isArchived ? 'Unarchive' : 'Archive'}
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('delete')} sx={{ color: 'error.main' }}>
+          <DeleteOutlineIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Delete Chat
+        </MenuItem>
+      </Menu>
     </Box>
   )
 }

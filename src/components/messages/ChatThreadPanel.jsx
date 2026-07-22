@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Avatar, Badge, Box, IconButton, Menu, MenuItem, Popover, TextField, Typography, alpha } from '@mui/material'
 import CallIcon from '@mui/icons-material/Call'
 import VideocamIcon from '@mui/icons-material/Videocam'
@@ -14,6 +14,23 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import DoodleBackground from 'components/common/DoodleBackground'
+import EmojiPicker from 'components/messages/EmojiPicker'
+import AnimatedEmojiMessage from 'components/messages/AnimatedEmojiMessage'
+import SendEffectMenu from 'components/messages/SendEffectMenu'
+import MessageEffectOverlay from 'components/messages/MessageEffectOverlay'
+
+// Matches a message that is exactly ONE emoji "unit" and nothing else — a
+// single Extended_Pictographic codepoint, a flag (two regional-indicator
+// codepoints), or a ZWJ/skin-tone sequence (family emoji, 👍🏽, etc). The
+// naive `/^\p{Extended_Pictographic}$/u` the spec called for actually fails
+// on very common emoji like ❤️ (base heart + a trailing U+FE0F variation
+// selector is 2 codepoints, not 1) — this covers those cases too.
+const SINGLE_EMOJI_REGEX =
+  /^(\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(️|\p{Emoji_Modifier})?(‍\p{Extended_Pictographic}(️|\p{Emoji_Modifier})?)*)$/u
+
+const isSingleEmojiMessage = (text) => typeof text === 'string' && SINGLE_EMOJI_REGEX.test(text.trim())
+
+const LONG_PRESS_MS = 450
 
 const getSenderColor = (name) => {
   if (!name) return '#5B4FE9'
@@ -34,6 +51,11 @@ const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 // forward, copy, delete) next to the bubble.
 const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation }) => {
   const isMine = message.sender === 'me'
+  // A lone emoji renders as a large animated glyph with no bubble chrome
+  // around it (Telegram/WhatsApp pattern), so header/timestamp text that
+  // normally contrasts against the colored bubble background needs a
+  // theme-adaptive color instead once that background goes away.
+  const isEmojiOnly = isSingleEmojiMessage(message.text)
   const [menuAnchor, setMenuAnchor] = useState(null)
   const [emojiAnchor, setEmojiAnchor] = useState(null)
 
@@ -101,7 +123,7 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
 
   const bubbleHeader = (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, gap: 2 }}>
-      <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: isMine ? 'primary.contrastText' : getSenderColor(message.senderName || conversation.name) }}>
+      <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: isMine ? (isEmojiOnly ? 'text.secondary' : 'primary.contrastText') : getSenderColor(message.senderName || conversation.name) }}>
         {isMine ? 'You' : (message.senderName || conversation.name)}
       </Typography>
       <IconButton
@@ -110,7 +132,7 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
         size="small"
         sx={{
           p: 0,
-          color: isMine ? 'rgba(255,255,255,0.8)' : 'text.secondary',
+          color: isMine ? (isEmojiOnly ? 'text.secondary' : 'rgba(255,255,255,0.8)') : 'text.secondary',
           opacity: 0,
           transition: 'opacity 0.15s ease',
           '&:hover': { opacity: '1 !important' },
@@ -184,6 +206,16 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
     </>
   )
 
+  const messageContent = isEmojiOnly ? (
+    <Box sx={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', my: 0.5 }}>
+      <AnimatedEmojiMessage emoji={message.text.trim()} />
+    </Box>
+  ) : (
+    <Typography variant="body1" sx={{ wordBreak: 'break-word', lineHeight: 1.4 }}>
+      {message.text}
+    </Typography>
+  )
+
   if (isMine) {
     return (
       <Box
@@ -202,37 +234,43 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
           className="bubble-box"
           sx={{
             maxWidth: '70%',
-            px: 2.25,
-            py: 1.25,
-            borderRadius: '16px',
+            px: isEmojiOnly ? 0 : 2.25,
+            py: isEmojiOnly ? 0 : 1.25,
+            borderRadius: isEmojiOnly ? 0 : '16px',
             borderBottomRightRadius: 0,
-            bgcolor: 'custom.bubble.sent.background',
-            color: 'custom.bubble.sent.text',
+            bgcolor: isEmojiOnly ? 'transparent' : 'custom.bubble.sent.background',
+            color: isEmojiOnly ? 'text.primary' : 'custom.bubble.sent.text',
             position: 'relative',
             '&:hover .bubble-chevron': { opacity: 0.7 },
             // Custom CSS tail for sent bubble
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              bottom: 0,
-              right: -6,
-              width: 6,
-              height: 8,
-              bgcolor: 'custom.bubble.sent.background',
-              clipPath: 'polygon(0 0, 0 100%, 100% 100%)',
-            },
+            '&::after': isEmojiOnly
+              ? undefined
+              : {
+                  content: '""',
+                  position: 'absolute',
+                  bottom: 0,
+                  right: -6,
+                  width: 6,
+                  height: 8,
+                  bgcolor: 'custom.bubble.sent.background',
+                  clipPath: 'polygon(0 0, 0 100%, 100% 100%)',
+                },
           }}
         >
           {bubbleHeader}
           {replyCard}
-          <Typography variant="body1" sx={{ wordBreak: 'break-word', lineHeight: 1.4 }}>
-            {message.text}
-          </Typography>
+          {messageContent}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-            <Typography sx={{ opacity: 0.7, fontSize: '0.75rem' }} variant="caption">
+            <Typography color={isEmojiOnly ? 'text.secondary' : undefined} sx={{ opacity: isEmojiOnly ? 1 : 0.7, fontSize: '0.75rem' }} variant="caption">
               {message.timestamp}
             </Typography>
-            <DoneAllIcon sx={{ fontSize: 14, color: message.seen ? 'custom.accent' : 'inherit', opacity: message.seen ? 1 : 0.7 }} />
+            <DoneAllIcon
+              sx={{
+                fontSize: 14,
+                color: message.seen ? 'custom.accent' : isEmojiOnly ? 'text.secondary' : 'inherit',
+                opacity: message.seen || isEmojiOnly ? 1 : 0.7,
+              }}
+            />
           </Box>
           {reactionsElement}
         </Box>
@@ -259,32 +297,32 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
             className="bubble-box"
             sx={{
               flex: 1,
-              px: 2.25,
-              py: 1.25,
-              borderRadius: '16px',
+              px: isEmojiOnly ? 0 : 2.25,
+              py: isEmojiOnly ? 0 : 1.25,
+              borderRadius: isEmojiOnly ? 0 : '16px',
               borderBottomLeftRadius: 0,
-              bgcolor: 'custom.bubble.received.background',
-              color: 'custom.bubble.received.text',
+              bgcolor: isEmojiOnly ? 'transparent' : 'custom.bubble.received.background',
+              color: isEmojiOnly ? 'text.primary' : 'custom.bubble.received.text',
               position: 'relative',
               '&:hover .bubble-chevron': { opacity: 0.7 },
               // Custom CSS tail for received bubble
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: 0,
-                left: -6,
-                width: 6,
-                height: 8,
-                bgcolor: 'custom.bubble.received.background',
-                clipPath: 'polygon(100% 0, 0 100%, 100% 100%)',
-              },
+              '&::after': isEmojiOnly
+                ? undefined
+                : {
+                    content: '""',
+                    position: 'absolute',
+                    bottom: 0,
+                    left: -6,
+                    width: 6,
+                    height: 8,
+                    bgcolor: 'custom.bubble.received.background',
+                    clipPath: 'polygon(100% 0, 0 100%, 100% 100%)',
+                  },
             }}
           >
             {bubbleHeader}
             {replyCard}
-            <Typography variant="body1" sx={{ wordBreak: 'break-word', lineHeight: 1.4 }}>
-              {message.text}
-            </Typography>
+            {messageContent}
             {reactionsElement}
           </Box>
           {emojiButton}
@@ -315,12 +353,87 @@ const ChatThreadPanel = ({
   onMessageMenuAction,
   replyingToMessage,
   onCancelReply,
+  activeEffect,
+  onEffectComplete,
 }) => {
+  const composerInputRef = useRef(null)
+  const [emojiAnchor, setEmojiAnchor] = useState(null)
+  const [effectMenuAnchor, setEffectMenuAnchor] = useState(null)
+  const longPressTimerRef = useRef(null)
+  const longPressTriggeredRef = useRef(false)
+
   const handleComposerKeyDown = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       onSend()
     }
+  }
+
+  const handleEmojiButtonClick = (event) => {
+    setEmojiAnchor((current) => (current ? null : event.currentTarget))
+  }
+
+  // Inserts at the current cursor position (or replaces the selection) so
+  // multiple emoji + typed text can be mixed together, then restores the
+  // caret right after the inserted emoji instead of jumping to the end.
+  const handleEmojiPick = (emojiData) => {
+    const inputEl = composerInputRef.current
+    const start = inputEl?.selectionStart ?? draft.length
+    const end = inputEl?.selectionEnd ?? draft.length
+    const nextDraft = draft.slice(0, start) + emojiData.emoji + draft.slice(end)
+    onDraftChange(nextDraft)
+
+    const nextCursor = start + emojiData.emoji.length
+    // emoji-picker-react schedules its own requestAnimationFrame(() =>
+    // element.focus()) on the clicked emoji button for grid keyboard-nav
+    // accessibility, racing with the refocus below. Nesting one frame
+    // deeper guarantees this one wins so typing resumes in the composer,
+    // not on the emoji button.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        inputEl?.focus()
+        inputEl?.setSelectionRange(nextCursor, nextCursor)
+      })
+    })
+  }
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  // Telegram's "press and hold send" pattern: a short press still sends
+  // normally (via handleSendClick below); holding past LONG_PRESS_MS opens
+  // the effect picker instead and suppresses the click-triggered send that
+  // follows the eventual mouseup/touchend.
+  const handleSendPressStart = (event) => {
+    if (!draft.trim()) return
+    longPressTriggeredRef.current = false
+    const anchor = event.currentTarget
+    clearLongPressTimer()
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true
+      setEffectMenuAnchor(anchor)
+    }, LONG_PRESS_MS)
+  }
+
+  const handleSendPressEnd = () => {
+    clearLongPressTimer()
+  }
+
+  const handleSendClick = () => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false
+      return
+    }
+    onSend()
+  }
+
+  const handlePickEffect = (effectId) => {
+    setEffectMenuAnchor(null)
+    onSend(effectId)
   }
 
   return (
@@ -431,11 +544,12 @@ const ChatThreadPanel = ({
           <IconButton aria-label="Attach" color="inherit" size="small">
             <AddCircleOutlineIcon />
           </IconButton>
-          <IconButton aria-label="Emoji" color="inherit" size="small">
+          <IconButton aria-label="Emoji" color="inherit" onClick={handleEmojiButtonClick} size="small">
             <MoodOutlinedIcon />
           </IconButton>
           <TextField
             fullWidth
+            inputRef={composerInputRef}
             maxRows={4}
             multiline
             onChange={(event) => onDraftChange(event.target.value)}
@@ -449,13 +563,24 @@ const ChatThreadPanel = ({
           <IconButton
             aria-label="Send"
             disabled={!draft.trim()}
-            onClick={onSend}
+            onClick={handleSendClick}
+            onContextMenu={(event) => event.preventDefault()}
+            onMouseDown={handleSendPressStart}
+            onMouseLeave={handleSendPressEnd}
+            onMouseUp={handleSendPressEnd}
+            onTouchEnd={handleSendPressEnd}
+            onTouchStart={handleSendPressStart}
             sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' }, '&.Mui-disabled': { bgcolor: 'action.disabledBackground' } }}
           >
             <SendIcon fontSize="small" />
           </IconButton>
         </Box>
+
+        <EmojiPicker anchorEl={emojiAnchor} onClose={() => setEmojiAnchor(null)} onEmojiClick={handleEmojiPick} open={Boolean(emojiAnchor)} />
+        <SendEffectMenu anchorEl={effectMenuAnchor} onClose={() => setEffectMenuAnchor(null)} onSelect={handlePickEffect} open={Boolean(effectMenuAnchor)} />
       </Box>
+
+      <MessageEffectOverlay effect={activeEffect} onComplete={onEffectComplete} />
     </Box>
   )
 }
