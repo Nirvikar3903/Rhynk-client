@@ -126,6 +126,7 @@ const SideNavBar = ({ collapsed, onToggleCollapse }) => {
         onClick={() => handleNavClick(item)}
         selected={isActive}
         sx={{
+          flexGrow: 0,
           borderRadius: 2,
           justifyContent: collapsed ? 'center' : 'flex-start',
           px: collapsed ? 1.5 : 2,
@@ -136,8 +137,8 @@ const SideNavBar = ({ collapsed, onToggleCollapse }) => {
           },
         }}
       >
-        <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 2, color: 'inherit' }}>
-          <item.icon fontSize="small" />
+        <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 1.5, color: 'inherit' }}>
+          <item.icon sx={{ fontSize: 18 }} />
         </ListItemIcon>
         {!collapsed && <ListItemText primary={item.label} slotProps={{ primary: { fontWeight: isActive ? 700 : 500 } }} />}
       </ListItemButton>

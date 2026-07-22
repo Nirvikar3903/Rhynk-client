@@ -31,7 +31,7 @@ const EmptyConversationPanel = ({ onNewMessage, onQuickAction }) => {
             height: 200,
             mb: 3,
             borderRadius: '50%',
-            bgcolor: (t) => alpha(t.palette.primary.main, 0.05),
+            bgcolor: 'background.paper',
             border: '2px dashed',
             borderColor: (t) => alpha(t.palette.primary.main, 0.2),
             display: 'flex',
@@ -59,13 +59,15 @@ const EmptyConversationPanel = ({ onNewMessage, onQuickAction }) => {
               key={action.key}
               onClick={() => onQuickAction(action.key)}
               sx={{
-                p: 2,
+                p: 2.5,
                 textAlign: 'left',
                 borderRadius: 3,
                 border: '1px solid',
                 borderColor: 'divider',
+                bgcolor: 'background.paper',
+                boxShadow: 1,
                 cursor: 'pointer',
-                '&:hover': { bgcolor: 'action.hover' },
+                '&:hover': { bgcolor: 'grey.100' },
               }}
             >
               <action.icon sx={{ color: action.color, mb: 1 }} />
