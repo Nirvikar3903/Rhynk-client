@@ -447,7 +447,7 @@ const ChatThreadPanel = ({
   }
 
   return (
-    <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, flexDirection: 'column', height: '100vh', bgcolor: (t) => t.palette.mode === 'dark' ? 'background.default' : '#FAF9FF', position: 'relative' }}>
+    <Box sx={{ flex: 1, minWidth: 0, display: { xs: 'none', md: 'flex' }, flexDirection: 'column', height: '100vh', bgcolor: (t) => t.palette.mode === 'dark' ? 'background.default' : '#FAF9FF', position: 'relative' }}>
       <DoodleBackground position="absolute" />
       <Box
         sx={{

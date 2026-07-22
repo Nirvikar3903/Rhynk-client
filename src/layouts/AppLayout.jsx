@@ -1,4 +1,5 @@
-import { useState } from 'react'
+// import { useState } from 'react' — only needed by the collapse/expand
+// toggle, disabled below alongside SideNavBar's own toggle.
 import { Box, Paper } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
@@ -26,7 +27,12 @@ const MOBILE_NAV_ITEMS = [
 // compose `<AppLayout><YourContainer /></AppLayout>` rather than
 // reimplementing this chrome.
 const AppLayout = ({ children }) => {
-  const [collapsed, setCollapsed] = useState(false)
+  // Collapse/expand is temporarily disabled — see the matching note on
+  // SideNavBar's signature. Restore by bringing back
+  // `const [collapsed, setCollapsed] = useState(false)` here and
+  // `onToggleCollapse={() => setCollapsed((prev) => !prev)}` on SideNavBar
+  // below, so this stays in sync with the rail's actual width again.
+  const collapsed = false
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -45,7 +51,8 @@ const AppLayout = ({ children }) => {
       <DoodleBackground />
 
       <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-        <SideNavBar collapsed={collapsed} onToggleCollapse={() => setCollapsed((prev) => !prev)} />
+        {/* onToggleCollapse={() => setCollapsed((prev) => !prev)} — re-add once the in-rail toggle button is restored */}
+        <SideNavBar collapsed={collapsed} />
       </Box>
 
       <Box

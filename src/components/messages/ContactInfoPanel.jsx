@@ -1,4 +1,4 @@
-import { Avatar, Badge, Box, Drawer, IconButton, Switch, Typography, alpha } from '@mui/material'
+import { Avatar, Badge, Box, IconButton, Switch, Typography, alpha } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutlineOutlined'
 import CallIcon from '@mui/icons-material/Call'
@@ -16,19 +16,17 @@ import ReportOutlinedIcon from '@mui/icons-material/ReportOutlined'
 const PANEL_WIDTH = 380
 
 // Card/tile radius matches theme.shape.borderRadius (12px, DESIGN.md's card
-// radius — see src/theme/index.js); the panel's own outer corners go a
-// notch softer (1.5x) so the floating panel reads as a level above the
-// cards nested inside it.
+// radius — see src/theme/index.js).
 const cardRadius = (t) => `${t.shape.borderRadius}px`
-const panelRadius = (t) => `${t.shape.borderRadius * 1.5}px`
 
-// Slide-in panel opened from the info icon in ChatThreadPanel's header —
-// shows the info Rhynk actually has about the person/group in the open
-// thread. Props-only (see [[create-component]]); MessagesContainer owns
-// the open/close state since this has exactly one caller (see
+// Third column opened from the info icon in ChatThreadPanel's header — a
+// real flex sibling of ChatThreadPanel (not an overlay/Drawer), so opening
+// it shrinks the thread panel's own flex:1 width instead of floating above
+// it. Props-only (see [[create-component]]); MessagesContainer owns the
+// open/close state since this has exactly one caller (see
 // [[11-modal-flow-pattern]]).
 const ContactInfoPanel = ({ open, conversation, onClose, onCall, onVideoCall, onSearchInChat, onToggleMute, onWallpaperClick, onBlock, onReport }) => {
-  if (!conversation) return null
+  if (!open || !conversation) return null
 
   const isMuted = Boolean(conversation.isMuted)
   const sharedMedia = conversation.sharedMedia ?? []
@@ -43,20 +41,15 @@ const ContactInfoPanel = ({ open, conversation, onClose, onCall, onVideoCall, on
   ]
 
   return (
-    <Drawer
-      anchor="right"
-      onClose={onClose}
-      open={open}
-      slotProps={{
-        paper: {
-          sx: {
-            width: PANEL_WIDTH,
-            bgcolor: 'background.default',
-            borderTopLeftRadius: panelRadius,
-            borderBottomLeftRadius: panelRadius,
-            boxShadow: '-16px 0 40px rgba(20, 20, 26, 0.14)',
-          },
-        },
+    <Box
+      sx={{
+        width: PANEL_WIDTH,
+        flexShrink: 0,
+        height: '100vh',
+        overflowY: 'auto',
+        bgcolor: 'background.default',
+        borderLeft: '1px solid',
+        borderColor: 'divider',
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1.5 }}>
@@ -278,7 +271,7 @@ const ContactInfoPanel = ({ open, conversation, onClose, onCall, onVideoCall, on
           </Box>
         </Box>
       </Box>
-    </Drawer>
+    </Box>
   )
 }
 

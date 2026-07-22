@@ -15,6 +15,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search'
 import AddIcon from '@mui/icons-material/Add'
 import ArchiveIcon from '@mui/icons-material/Archive'
+import GraphicEqIcon from '@mui/icons-material/GraphicEq'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
@@ -89,7 +90,7 @@ const ConversationListPanel = ({
   return (
     <Box
       sx={{
-        width: { xs: '100%', md: 360 },
+        width: { xs: '100%', md: 400 },
         flexShrink: 0,
         height: '100vh',
         borderRight: '1px solid',
@@ -120,9 +121,34 @@ const ConversationListPanel = ({
               </Typography>
             </Box>
           ) : (
-            <Typography sx={{ fontWeight: 800, letterSpacing: '-0.02em' }} variant="h2">
-              Rhynk
-            </Typography>
+            // Logo + name + tagline — moved here from SideNavBar (now
+            // permanently collapsed, so it has nowhere to show its own
+            // branding) per request.
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  flexShrink: 0,
+                  borderRadius: 2,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <GraphicEqIcon />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography noWrap sx={{ letterSpacing: '-0.02em', fontWeight: 800, lineHeight: 1.1 }} variant="h2">
+                  Rhynk
+                </Typography>
+                <Typography color="text.secondary" noWrap sx={{ textTransform: 'uppercase', letterSpacing: 2, fontSize: 10 }}>
+                  Premium Audio
+                </Typography>
+              </Box>
+            </Box>
           )}
           {!isShowingArchived && !isShowingStarred && (
             <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>

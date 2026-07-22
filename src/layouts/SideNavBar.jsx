@@ -22,8 +22,11 @@ import GraphicEqIcon from '@mui/icons-material/GraphicEq'
 import ChatIcon from '@mui/icons-material/Chat'
 import ExploreIcon from '@mui/icons-material/Explore'
 import QueueMusicIcon from '@mui/icons-material/QueueMusic'
-import HistoryIcon from '@mui/icons-material/History'
-import SettingsIcon from '@mui/icons-material/Settings'
+import DonutLargeIcon from '@mui/icons-material/DonutLarge'
+import CallIcon from '@mui/icons-material/Call'
+// Replaced by Status/Calls in NAV_ITEMS below — kept for an easy revert.
+// import HistoryIcon from '@mui/icons-material/History'
+// import SettingsIcon from '@mui/icons-material/Settings'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlineOutlined'
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined'
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined'
@@ -32,8 +35,10 @@ import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNone
 import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+// Only used by the collapse/expand toggle, disabled below — see the note
+// on SideNavBar's signature.
+// import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+// import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AppButtonComponent from 'components/mui/AppButtonComponent'
 import { useLogoutMutation } from 'store/api/auth.apislice'
 import { selectUser } from 'store/slices/auth.slice'
@@ -50,8 +55,11 @@ const NAV_ITEMS = [
   { label: 'Music Room', icon: GraphicEqIcon },
   { label: 'Discover', icon: ExploreIcon },
   { label: 'Playlist', icon: QueueMusicIcon },
-  { label: 'History', icon: HistoryIcon },
-  { label: 'Settings', icon: SettingsIcon },
+  { label: 'Status', icon: DonutLargeIcon },
+  { label: 'Calls', icon: CallIcon },
+  // Replaced by Status/Calls above — kept for an easy revert.
+  // { label: 'History', icon: HistoryIcon },
+  // { label: 'Settings', icon: SettingsIcon },
 ]
 
 // Opened from the Profile trigger at the bottom of the rail. Every entry
@@ -71,7 +79,14 @@ const PROFILE_MENU_ITEMS = [
 // Shared left nav for every post-login screen — lives alongside AppLayout
 // (not components/common/) since it's structural chrome specific to that
 // layout, not a reusable domain-agnostic primitive.
-const SideNavBar = ({ collapsed, onToggleCollapse }) => {
+// The in-rail collapse/expand toggle button is disabled (see the commented
+// block further down) — but `collapsed` itself still flows in from
+// AppLayout, which now sets it directly (no button wired to it), e.g. for
+// manually previewing the expanded rail. To fully restore the toggle:
+// uncomment the buttons + branding block below (and their
+// ChevronLeft/ChevronRight imports up top) and pass `onToggleCollapse`
+// again from AppLayout.
+const SideNavBar = ({ collapsed }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const user = useSelector(selectUser)
@@ -175,46 +190,53 @@ const SideNavBar = ({ collapsed, onToggleCollapse }) => {
         overflowX: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', px: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              flexShrink: 0,
-              borderRadius: 2,
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <GraphicEqIcon />
+      {/*
+        Logo + "Rhynk" + "Premium Audio" tagline block — moved to
+        ConversationListPanel (above its search bar) per request. Left here
+        commented out, not deleted, in case the rail ever needs its own
+        branding again.
+
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', px: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                flexShrink: 0,
+                borderRadius: 2,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <GraphicEqIcon />
+            </Box>
+            {!collapsed && (
+              <Box sx={{ minWidth: 0 }}>
+                <Typography noWrap sx={{ letterSpacing: '-0.02em', fontWeight: 800, lineHeight: 1.1 }} variant="h2">
+                  Rhynk
+                </Typography>
+                <Typography color="text.secondary" noWrap sx={{ textTransform: 'uppercase', letterSpacing: 2, fontSize: 10 }}>
+                  Premium Audio
+                </Typography>
+              </Box>
+            )}
           </Box>
           {!collapsed && (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography noWrap sx={{ letterSpacing: '-0.02em', fontWeight: 800, lineHeight: 1.1 }} variant="h2">
-                Rhynk
-              </Typography>
-              <Typography color="text.secondary" noWrap sx={{ textTransform: 'uppercase', letterSpacing: 2, fontSize: 10 }}>
-                Premium Audio
-              </Typography>
-            </Box>
+            <IconButton aria-label="Collapse navigation" onClick={onToggleCollapse} size="small">
+              <ChevronLeftIcon fontSize="small" />
+            </IconButton>
           )}
         </Box>
-        {!collapsed && (
-          <IconButton aria-label="Collapse navigation" onClick={onToggleCollapse} size="small">
-            <ChevronLeftIcon fontSize="small" />
+
+        {collapsed && (
+          <IconButton aria-label="Expand navigation" onClick={onToggleCollapse} size="small" sx={{ alignSelf: 'center' }}>
+            <ChevronRightIcon fontSize="small" />
           </IconButton>
         )}
-      </Box>
-
-      {collapsed && (
-        <IconButton aria-label="Expand navigation" onClick={onToggleCollapse} size="small" sx={{ alignSelf: 'center' }}>
-          <ChevronRightIcon fontSize="small" />
-        </IconButton>
-      )}
+      */}
 
       <Box component="nav" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1 }}>
         {NAV_ITEMS.map(renderNavButton)}
