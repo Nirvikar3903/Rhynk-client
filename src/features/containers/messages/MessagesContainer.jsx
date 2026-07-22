@@ -38,7 +38,7 @@ const ALL_FORWARD_TARGETS = [
 // Owns the active thread for whichever conversation ConversationsContainer
 // has selected — matches the "opening a thread is the messages domain's
 // job" split already noted in ConversationsContainer.
-const MessagesContainer = ({ conversation }) => {
+const MessagesContainer = ({ conversation, onToggleStarMessage }) => {
   const [messagesByConversation, setMessagesByConversation] = useState(SEED_MESSAGES)
   const [draft, setDraft] = useState('')
 
@@ -140,6 +140,16 @@ const MessagesContainer = ({ conversation }) => {
     }))
   }
 
+  const handleToggleStarMessage = (message) => {
+    const isStarred = !message.isStarred
+    setMessagesByConversation((prev) => ({
+      ...prev,
+      [conversation.id]: (prev[conversation.id] ?? []).map((msg) => (msg.id === message.id ? { ...msg, isStarred } : msg)),
+    }))
+    onToggleStarMessage?.(conversation, { ...message, isStarred })
+    toast.success(isStarred ? 'Message starred.' : 'Message unstarred.')
+  }
+
   const handleMessageMenuAction = (action, message) => {
     if (action === 'copy') {
       navigator.clipboard
@@ -153,6 +163,7 @@ const MessagesContainer = ({ conversation }) => {
       setReplyingToMessage(message)
       return
     }
+    if (action === 'star' || action === 'unstar') return handleToggleStarMessage(message)
     handleNotImplemented(action)
   }
 

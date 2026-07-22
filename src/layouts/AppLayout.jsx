@@ -17,7 +17,7 @@ const MOBILE_NAV_ITEMS = [
   { label: 'Home', icon: ChatIcon, to: '/home' },
   { label: 'Music', icon: GraphicEqIcon },
   { label: 'Discover', icon: ExploreIcon },
-  { label: 'Playlists', icon: LibraryMusicIcon },
+  // { label: 'Playlists', icon: LibraryMusicIcon },
   { label: 'Settings', icon: SettingsIcon },
 ]
 

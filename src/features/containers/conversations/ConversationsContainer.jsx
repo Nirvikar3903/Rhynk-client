@@ -37,13 +37,49 @@ const MOCK_CONVERSATIONS = [
   },
 ]
 
+const MOCK_STARRED_MESSAGES = [
+  {
+    id: 'star-1',
+    conversationId: '1',
+    conversationName: 'Elena Rodriguez',
+    senderName: 'Elena Rodriguez',
+    initials: 'ER',
+    avatarColor: 'primary.main',
+    text: "The new mix sounds incredible! Let's discuss the bass levels.",
+    timestamp: '10:42 AM',
+  },
+  {
+    id: 'star-2',
+    conversationId: '2',
+    conversationName: 'Sarah Jenkins',
+    senderName: 'Sarah Jenkins',
+    initials: 'SJ',
+    avatarColor: 'info.main',
+    attachment: { label: 'Summer_Playlist_Cover.png', sizeLabel: '21 kB' },
+    timestamp: '2:15 PM',
+  },
+  {
+    id: 'star-3',
+    conversationId: '3',
+    conversationName: 'Marcus Thorne',
+    senderName: 'You',
+    initials: 'MT',
+    avatarColor: 'warning.main',
+    text: 'Thanks for the feedback on the track — really appreciate the detailed notes!',
+    timestamp: '9:05 AM',
+  },
+]
+
 const ConversationsContainer = () => {
   const navigate = useNavigate()
   const [conversations, setConversations] = useState(MOCK_CONVERSATIONS)
   const [activeFilter, setActiveFilter] = useState('All')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedConversationId, setSelectedConversationId] = useState(null)
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
   const [isViewingArchived, setIsViewingArchived] = useState(false)
+  const [isViewingStarred, setIsViewingStarred] = useState(false)
+  const [starredMessages, setStarredMessages] = useState(MOCK_STARRED_MESSAGES)
 
   const handleNotImplemented = (label) => toast.info(`${label} is not implemented yet.`)
 
@@ -52,6 +88,30 @@ const ConversationsContainer = () => {
       setIsNewChatOpen(true)
     } else if (key === 'room') {
       handleNotImplemented('Start Room')
+    }
+  }
+
+  const handleMarkAllAsRead = () => {
+    setConversations((prev) =>
+      prev.map((c) => ({ ...c, unreadCount: 0, isUnread: false })),
+    )
+    toast.success('All messages marked as read.')
+  }
+
+  const handleMenuOptionClick = (actionKey) => {
+    if (actionKey === 'newGroup') {
+      setIsNewChatOpen(true)
+    } else if (actionKey === 'markAllRead') {
+      handleMarkAllAsRead()
+    } else if (actionKey === 'starred') {
+      setIsViewingArchived(false)
+      setIsViewingStarred(true)
+    } else if (actionKey === 'selectChats') {
+      handleNotImplemented('Select chats')
+    } else if (actionKey === 'appLock') {
+      handleNotImplemented('App lock')
+    } else if (actionKey === 'logout') {
+      handleNotImplemented('Log out')
     }
   }
 
@@ -152,10 +212,16 @@ const ConversationsContainer = () => {
   // Pinned conversations float to the top, mock order preserved otherwise.
   const sortPinnedFirst = (list) => [...list].sort((a, b) => (b.isPinned === true) - (a.isPinned === true))
 
-  // Filter conversations based on current sidebar filter
+  // Filter conversations based on current sidebar filter and search query
   const filteredConversations = sortPinnedFirst(
     conversations.filter((conversation) => {
       if (conversation.isArchived) return false
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const nameMatches = conversation.name?.toLowerCase().includes(q)
+        const previewMatches = conversation.preview?.toLowerCase().includes(q)
+        if (!nameMatches && !previewMatches) return false
+      }
       if (activeFilter === 'Unread') return conversation.unreadCount > 0 || conversation.isUnread === true
       if (activeFilter === 'Favourites') return conversation.isPinned === true
       if (activeFilter === 'Groups') return conversation.isGroup === true
@@ -169,6 +235,33 @@ const ConversationsContainer = () => {
 
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId)
 
+  const handleSelectStarredMessage = (message) => {
+    setIsViewingStarred(false)
+    setSelectedConversationId(message.conversationId)
+  }
+
+  const handleToggleStarMessage = (conversation, message) => {
+    setStarredMessages((prev) => {
+      const withoutMessage = prev.filter((m) => !(m.id === message.id && m.conversationId === conversation.id))
+      if (!message.isStarred) return withoutMessage
+
+      return [
+        ...withoutMessage,
+        {
+          id: message.id,
+          conversationId: conversation.id,
+          conversationName: conversation.name,
+          senderName: message.sender === 'me' ? 'You' : message.senderName || conversation.name,
+          initials: message.sender === 'me' ? 'Y' : message.senderInitials || conversation.initials,
+          avatarColor: conversation.avatarColor,
+          text: message.text,
+          attachment: message.attachment,
+          timestamp: message.timestamp,
+        },
+      ]
+    })
+  }
+
   return (
     <Box sx={{ display: 'flex', width: '100%' }}>
       <ConversationListPanel
@@ -181,12 +274,20 @@ const ConversationsContainer = () => {
         onBackFromArchived={() => setIsViewingArchived(false)}
         onConversationMenuAction={handleConversationMenuAction}
         onFilterChange={setActiveFilter}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onMenuOptionClick={handleMenuOptionClick}
+        onNewGroup={() => setIsNewChatOpen(true)}
         onNewMessage={() => setIsNewChatOpen(true)}
-        onSearchClick={() => handleNotImplemented('Search')}
+        onSearchChange={setSearchQuery}
         onSelectConversation={(conversation) => setSelectedConversationId(conversation.id)}
+        searchQuery={searchQuery}
+        isShowingStarred={isViewingStarred}
+        onBackFromStarred={() => setIsViewingStarred(false)}
+        starredMessages={starredMessages}
+        onSelectStarredMessage={handleSelectStarredMessage}
       />
       {selectedConversation ? (
-        <MessagesContainer conversation={selectedConversation} />
+        <MessagesContainer conversation={selectedConversation} onToggleStarMessage={handleToggleStarMessage} />
       ) : (
         <EmptyConversationPanel onNewMessage={() => setIsNewChatOpen(true)} onQuickAction={handleQuickAction} />
       )}

@@ -10,6 +10,8 @@ import DoneAllIcon from '@mui/icons-material/DoneAll'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import ReplyIcon from '@mui/icons-material/Reply'
 import ForwardIcon from '@mui/icons-material/Forward'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import CloseIcon from '@mui/icons-material/Close'
@@ -193,6 +195,14 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
         <MenuItem onClick={() => handleMenuAction('forward')}>
           <ForwardIcon fontSize="small" sx={{ mr: 1.5 }} />
           Forward
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction(message.isStarred ? 'unstar' : 'star')}>
+          {message.isStarred ? (
+            <StarIcon fontSize="small" sx={{ mr: 1.5, color: 'warning.main' }} />
+          ) : (
+            <StarBorderIcon fontSize="small" sx={{ mr: 1.5 }} />
+          )}
+          {message.isStarred ? 'Unstar message' : 'Star message'}
         </MenuItem>
         <MenuItem onClick={() => handleMenuAction('copy')}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1.5 }} />
