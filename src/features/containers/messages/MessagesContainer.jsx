@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
 import ChatThreadPanel from 'components/messages/ChatThreadPanel'
 import ForwardMessageModal from 'components/messages/ForwardMessageModal'
+import ContactInfoPanel from 'components/messages/ContactInfoPanel'
 
 // Hardcoded for now — there's no messages RTK Query endpoint yet (see
 // [[05-state-data-layer]]); once one exists this becomes
@@ -38,7 +39,7 @@ const ALL_FORWARD_TARGETS = [
 // Owns the active thread for whichever conversation ConversationsContainer
 // has selected — matches the "opening a thread is the messages domain's
 // job" split already noted in ConversationsContainer.
-const MessagesContainer = ({ conversation, onToggleStarMessage }) => {
+const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMenuAction }) => {
   const [messagesByConversation, setMessagesByConversation] = useState(SEED_MESSAGES)
   const [draft, setDraft] = useState('')
 
@@ -48,6 +49,7 @@ const MessagesContainer = ({ conversation, onToggleStarMessage }) => {
   const [forwardNote, setForwardNote] = useState('')
   const [replyingToMessage, setReplyingToMessage] = useState(null)
   const [activeEffect, setActiveEffect] = useState(null)
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
 
   const messages = messagesByConversation[conversation.id] ?? []
 
@@ -150,6 +152,10 @@ const MessagesContainer = ({ conversation, onToggleStarMessage }) => {
     toast.success(isStarred ? 'Message starred.' : 'Message unstarred.')
   }
 
+  const handleToggleMute = () => {
+    onConversationMenuAction?.(conversation.isMuted ? 'unmute' : 'mute', conversation)
+  }
+
   const handleMessageMenuAction = (action, message) => {
     if (action === 'copy') {
       navigator.clipboard
@@ -176,7 +182,7 @@ const MessagesContainer = ({ conversation, onToggleStarMessage }) => {
         onCall={() => handleNotImplemented('Voice call')}
         onDraftChange={setDraft}
         onForwardMessage={handleOpenForward}
-        onInfo={() => handleNotImplemented('Conversation info')}
+        onInfo={() => setIsInfoOpen(true)}
         onMessageMenuAction={handleMessageMenuAction}
         onReactMessage={handleReactMessage}
         onSend={handleSend}
@@ -185,6 +191,19 @@ const MessagesContainer = ({ conversation, onToggleStarMessage }) => {
         onCancelReply={() => setReplyingToMessage(null)}
         activeEffect={activeEffect}
         onEffectComplete={handleEffectComplete}
+      />
+
+      <ContactInfoPanel
+        conversation={conversation}
+        onBlock={() => handleNotImplemented(`Block ${conversation.name}`)}
+        onCall={() => handleNotImplemented('Voice call')}
+        onClose={() => setIsInfoOpen(false)}
+        onReport={() => handleNotImplemented('Report contact')}
+        onSearchInChat={() => handleNotImplemented('Search in chat')}
+        onToggleMute={handleToggleMute}
+        onVideoCall={() => handleNotImplemented('Video call')}
+        onWallpaperClick={() => handleNotImplemented('Wallpaper & sound')}
+        open={isInfoOpen}
       />
 
       <ForwardMessageModal

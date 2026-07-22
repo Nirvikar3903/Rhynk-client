@@ -17,6 +17,15 @@ const MOCK_CONVERSATIONS = [
     preview: "The new mix sounds incredible! Let's discuss the bass levels.",
     isOnline: true,
     isPinned: true,
+    bio: 'Creative Director & Sound Designer. Exploring the intersection of digital landscapes and nostalgic synth-wave textures. Always up for a collab on new tracks. 🎹✨',
+    phone: '+1 555 0182',
+    sharedMedia: [
+      { id: 'media-1', color: 'secondary.main' },
+      { id: 'media-2', color: 'primary.main' },
+      { id: 'media-3', color: 'warning.main' },
+    ],
+    sharedMediaCount: 42,
+    mutualGroups: [{ id: 'group-swc', name: 'Synth Wave Collab', memberCount: 128 }],
   },
   {
     id: '2',
@@ -287,7 +296,7 @@ const ConversationsContainer = () => {
         onSelectStarredMessage={handleSelectStarredMessage}
       />
       {selectedConversation ? (
-        <MessagesContainer conversation={selectedConversation} onToggleStarMessage={handleToggleStarMessage} />
+        <MessagesContainer conversation={selectedConversation} onConversationMenuAction={handleConversationMenuAction} onToggleStarMessage={handleToggleStarMessage} />
       ) : (
         <EmptyConversationPanel onNewMessage={() => setIsNewChatOpen(true)} onQuickAction={handleQuickAction} />
       )}
