@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import SignUpForm from 'components/auth/SignUpForm'
 import OtpVerificationModal from 'components/common/OtpVerificationModal'
-import { useRegisterMutation, useVerifyOtpMutation, useResendOtpMutation } from 'store/api/auth.apislice'
+import {
+  useRegisterMutation,
+  useVerifyOtpMutation,
+  useResendOtpMutation,
+  useGoogleLoginMutation,
+} from 'store/api/auth.apislice'
 
 const RESEND_COOLDOWN_SECONDS = 60
 
@@ -28,6 +33,7 @@ const SignUpContainer = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [register, { isLoading }] = useRegisterMutation()
+  const [googleLogin, { isLoading: isGoogleLoggingIn }] = useGoogleLoginMutation()
 
   // OTP verification step, opened once registration succeeds. Renders as a
   // modal over the signup screen rather than a route of its own.
@@ -71,12 +77,31 @@ const SignUpContainer = () => {
       setPassword('')
       setShowPassword(false)
     } catch (err) {
-      toast.error(err?.data?.code ?? 'Something went wrong. Please try again.')
+      toast.error(err?.data?.error?.message || err?.data?.message || err?.data?.code || 'Something went wrong. Please try again.')
     }
   }
 
-  const handleGoogleSignUp = () => {
-    toast.info('Google sign-up is not implemented yet.')
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      if (!credentialResponse?.credential) {
+        toast.error('Google credential not received. Please try again.')
+        return
+      }
+      await googleLogin({ idToken: credentialResponse.credential }).unwrap()
+      toast.success('Welcome to Rhynk!')
+      navigate('/home')
+    } catch (err) {
+      toast.error(
+        err?.data?.error?.message ||
+        err?.data?.message ||
+        err?.data?.code ||
+        'Google sign-up failed. Please try again.'
+      )
+    }
+  }
+
+  const handleGoogleError = () => {
+    toast.error('Google sign-up was cancelled or failed.')
   }
 
   const handleVerifyOtpSubmit = async () => {
@@ -86,7 +111,7 @@ const SignUpContainer = () => {
       setVerifyingEmail(null)
       navigate('/login')
     } catch (err) {
-      toast.error(err?.data?.code ?? 'Invalid or expired code. Please try again.')
+      toast.error(err?.data?.error?.message || err?.data?.message || err?.data?.code || 'Invalid or expired code. Please try again.')
     }
   }
 
@@ -96,7 +121,7 @@ const SignUpContainer = () => {
       setResendSecondsRemaining(RESEND_COOLDOWN_SECONDS)
       toast.success('A new code has been sent.')
     } catch (err) {
-      toast.error(err?.data?.code ?? 'Could not resend the code. Please try again.')
+      toast.error(err?.data?.error?.message || err?.data?.message || err?.data?.code || 'Could not resend the code. Please try again.')
     }
   }
 
@@ -104,9 +129,10 @@ const SignUpContainer = () => {
     <>
       <SignUpForm
         email={email}
-        isSubmitting={isLoading}
+        isSubmitting={isLoading || isGoogleLoggingIn}
         onEmailChange={setEmail}
-        onGoogleSignUp={handleGoogleSignUp}
+        onGoogleError={handleGoogleError}
+        onGoogleSuccess={handleGoogleSuccess}
         onPasswordChange={setPassword}
         onSubmit={handleSubmit}
         onToggleShowPassword={() => setShowPassword((prev) => !prev)}

@@ -123,7 +123,9 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
     </Box>
   )
 
-  const bubbleHeader = (
+  const isGroup = Boolean(conversation?.isGroup)
+
+  const bubbleHeader = isGroup && (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, gap: 2 }}>
       <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: isMine ? (isEmojiOnly ? 'text.secondary' : 'primary.contrastText') : getSenderColor(message.senderName || conversation.name) }}>
         {isMine ? 'You' : (message.senderName || conversation.name)}
@@ -143,6 +145,27 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
         <KeyboardArrowDownIcon sx={{ fontSize: 16 }} />
       </IconButton>
     </Box>
+  )
+
+  const absoluteChevron = !isGroup && (
+    <IconButton
+      className="bubble-chevron"
+      onClick={(event) => setMenuAnchor(event.currentTarget)}
+      size="small"
+      sx={{
+        position: 'absolute',
+        top: 6,
+        right: 8,
+        p: 0,
+        color: isMine ? (isEmojiOnly ? 'text.secondary' : 'rgba(255,255,255,0.8)') : 'text.secondary',
+        opacity: 0,
+        transition: 'opacity 0.15s ease',
+        '&:hover': { opacity: '1 !important' },
+        zIndex: 2,
+      }}
+    >
+      <KeyboardArrowDownIcon sx={{ fontSize: 16 }} />
+    </IconButton>
   )
 
   const replyCard = message.replyTo && (
@@ -268,6 +291,7 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
           }}
         >
           {bubbleHeader}
+          {absoluteChevron}
           {replyCard}
           {messageContent}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
@@ -331,6 +355,7 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
             }}
           >
             {bubbleHeader}
+            {absoluteChevron}
             {replyCard}
             {messageContent}
             {reactionsElement}

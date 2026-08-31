@@ -16,6 +16,13 @@ const SEED_MESSAGES = {
     { id: 'm4', sender: 'me', text: "Perfect. Let's do it. I'll join in 5 mins!", timestamp: '10:41 AM', seen: true },
     { id: 'm5', sender: 'them', senderInitials: 'ER', text: 'That new track is incredible!', timestamp: '10:42 AM', reactions: ['👍'] },
   ],
+  4: [
+    { id: 'g1', sender: 'them', senderName: 'Gopal Menon', senderInitials: 'GM', text: "Yo! Who's got the stems for the bridge section?", timestamp: '11:02 AM' },
+    { id: 'g2', sender: 'them', senderName: 'Priya Nair', senderInitials: 'PN', text: "I've got them — uploading to the shared drive now.", timestamp: '11:05 AM' },
+    { id: 'g3', sender: 'me', text: "Nice, I'll start layering the pads once it's up.", timestamp: '11:07 AM', seen: true },
+    { id: 'g4', sender: 'them', senderName: 'Elena Rodriguez', senderInitials: 'ER', text: 'Dropping the new mix in 10 mins 🔥', timestamp: '11:20 AM' },
+    { id: 'g5', sender: 'them', senderName: 'Gopal Menon', senderInitials: 'GM', text: "Can't wait, let's do a listening session in the room after.", timestamp: '11:21 AM' },
+  ],
 }
 
 // Hardcoded for now — there's no contacts/groups RTK Query endpoint yet

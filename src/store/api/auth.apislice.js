@@ -98,6 +98,19 @@ export const authApi = baseApi.injectEndpoints({
       transformResponse: parseResetTokenResponse,
     }),
 
+    googleLogin: builder.mutation({
+      query: ({ idToken }) => ({
+        url: '/auth/google',
+        method: 'POST',
+        body: { idToken, deviceId: getDeviceId(), deviceType: 'WEB' },
+      }),
+      transformResponse: parseSessionResponse,
+      onQueryStarted: async (_args, { dispatch, queryFulfilled }) => {
+        const { data } = await queryFulfilled
+        dispatch(setSession(data))
+      },
+    }),
+
     forgotPasswordReset: builder.mutation({
       query: ({ email, resetToken, newPassword }) => ({
         url: '/auth/forgot-password/reset',
@@ -112,6 +125,7 @@ export const {
   useRegisterMutation,
   useVerifyOtpMutation,
   useLoginMutation,
+  useGoogleLoginMutation,
   useResendOtpMutation,
   useLogoutMutation,
   useForgotPasswordRequestMutation,

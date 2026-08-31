@@ -44,6 +44,21 @@ const MOCK_CONVERSATIONS = [
     timestamp: 'Monday',
     preview: 'Thanks for the feedback on the track.',
   },
+  {
+    id: '4',
+    name: 'Synth Wave Collab',
+    initials: 'SW',
+    avatarColor: 'success.main',
+    timestamp: '11:21 AM',
+    preview: 'Gopal Menon: Can’t wait, let’s do a listening session in the room after.',
+    isGroup: true,
+    isMusicRoom: true,
+    members: [
+      { id: 'm1', name: 'Elena Rodriguez', initials: 'ER', avatarColor: 'primary.main' },
+      { id: 'm2', name: 'Gopal Menon', initials: 'GM', avatarColor: 'info.main' },
+      { id: 'm3', name: 'Priya Nair', initials: 'PN', avatarColor: 'secondary.main' },
+    ],
+  },
 ]
 
 const MOCK_STARRED_MESSAGES = [

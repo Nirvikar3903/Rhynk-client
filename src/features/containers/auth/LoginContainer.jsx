@@ -7,6 +7,7 @@ import OtpVerificationModal from 'components/common/OtpVerificationModal'
 import ResetPasswordModal from 'components/auth/ResetPasswordModal'
 import {
   useLoginMutation,
+  useGoogleLoginMutation,
   useForgotPasswordRequestMutation,
   useForgotPasswordVerifyMutation,
   useForgotPasswordResetMutation,
@@ -21,6 +22,7 @@ const LoginContainer = () => {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [login, { isLoading }] = useLoginMutation()
+  const [googleLogin, { isLoading: isGoogleLoggingIn }] = useGoogleLoginMutation()
 
   // Forgot-password flow: three steps, each its own modal (never more than
   // one open at once): request (email only) → the generic OTP modal reused
@@ -44,12 +46,31 @@ const LoginContainer = () => {
       toast.success('Welcome back!')
       navigate('/home')
     } catch (err) {
-      toast.error(err?.data?.code ?? 'Something went wrong. Please try again.')
+      toast.error(err?.data?.error?.message || err?.data?.message || err?.data?.code || 'Something went wrong. Please try again.')
     }
   }
 
-  const handleGoogleLogin = () => {
-    toast.info('Google sign-in is not implemented yet.')
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      if (!credentialResponse?.credential) {
+        toast.error('Google credential not received. Please try again.')
+        return
+      }
+      await googleLogin({ idToken: credentialResponse.credential }).unwrap()
+      toast.success('Welcome back!')
+      navigate('/home')
+    } catch (err) {
+      toast.error(
+        err?.data?.error?.message ||
+        err?.data?.message ||
+        err?.data?.code ||
+        'Google sign-in failed. Please try again.'
+      )
+    }
+  }
+
+  const handleGoogleError = () => {
+    toast.error('Google sign-in was cancelled or failed.')
   }
 
   const resetForgotPasswordState = () => {
@@ -100,9 +121,10 @@ const LoginContainer = () => {
     <>
       <LoginForm
         identity={identity}
-        isSubmitting={isLoading}
+        isSubmitting={isLoading || isGoogleLoggingIn}
         onForgotPassword={() => setIsForgotPasswordOpen(true)}
-        onGoogleLogin={handleGoogleLogin}
+        onGoogleError={handleGoogleError}
+        onGoogleSuccess={handleGoogleSuccess}
         onIdentityChange={setIdentity}
         onPasswordChange={setPassword}
         onSubmit={handleSubmit}
