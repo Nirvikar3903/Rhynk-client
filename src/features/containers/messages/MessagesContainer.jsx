@@ -1,26 +1,46 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
 import ChatThreadPanel from 'components/messages/ChatThreadPanel'
 import ForwardMessageModal from 'components/messages/ForwardMessageModal'
 import ContactInfoPanel from 'components/messages/ContactInfoPanel'
+import { selectUser, selectAccessToken, selectCurrentUserId } from 'store/slices/auth.slice'
+import {
+  emitSendMessage,
+  emitTypingStart,
+  emitTypingStop,
+  emitReactMessage,
+  emitMarkRead,
+  emitJoinConversation,
+  getSocket,
+} from 'services/socket'
+import {
+  useGetMessagesQuery,
+  useSendMessageHttpMutation,
+  useMarkConversationReadMutation,
+  useToggleReactionMutation,
+  useToggleStarMessageMutation,
+} from 'store/api/messaging.apislice'
+import { parseMessagesResponse } from 'store/parsers/messaging.parsers'
 
-// Hardcoded for now — there's no messages RTK Query endpoint yet (see
-// [[05-state-data-layer]]); once one exists this becomes
-// `useGetMessagesQuery(conversation.id)` and this map goes away. Keyed by
-// the conversation id from ConversationsContainer's own mock data.
-const SEED_MESSAGES = {
-  1: [
-    { id: 'm1', sender: 'them', senderInitials: 'ER', text: "Hey! Did you get a chance to listen to the demo I sent over this morning? I think the bassline needs some work.", timestamp: '10:30 AM' },
-    { id: 'm2', sender: 'me', text: "Just finished listening to it. You're right about the low-end. It's a bit muddy around 200Hz.", timestamp: '10:35 AM', seen: true },
-    { id: 'm3', sender: 'them', senderInitials: 'ER', text: "Exactly! I'll try cleaning that up. Want to hop in a Music Room to iterate together live?", timestamp: '10:38 AM', replyTo: { senderName: 'You', text: "Just finished listening to it. You're right about the low-end. It's a bit muddy around 200Hz." } },
-    { id: 'm4', sender: 'me', text: "Perfect. Let's do it. I'll join in 5 mins!", timestamp: '10:41 AM', seen: true },
-    { id: 'm5', sender: 'them', senderInitials: 'ER', text: 'That new track is incredible!', timestamp: '10:42 AM', reactions: ['👍'] },
-  ],
-}
+// Seed messages data — commented out, kept for local testing/reference
+// const SEED_MESSAGES = {
+//   1: [
+//     { id: 'm1', sender: 'them', senderInitials: 'ER', text: "Hey! Did you get a chance to listen to the demo I sent over this morning? I think the bassline needs some work.", timestamp: '10:30 AM' },
+//     { id: 'm2', sender: 'me', text: "Just finished listening to it. You're right about the low-end. It's a bit muddy around 200Hz.", timestamp: '10:35 AM', seen: true },
+//     { id: 'm3', sender: 'them', senderInitials: 'ER', text: "Exactly! I'll try cleaning that up. Want to hop in a Music Room to iterate together live?", timestamp: '10:38 AM', replyTo: { senderName: 'You', text: "Just finished listening to it. You're right about the low-end. It's a bit muddy around 200Hz." } },
+//     { id: 'm4', sender: 'me', text: "Perfect. Let's do it. I'll join in 5 mins!", timestamp: '10:41 AM', seen: true },
+//     { id: 'm5', sender: 'them', senderInitials: 'ER', text: 'That new track is incredible!', timestamp: '10:42 AM', reactions: ['👍'] },
+//   ],
+//   4: [
+//     { id: 'g1', sender: 'them', senderName: 'Gopal Menon', senderInitials: 'GM', text: "Yo! Who's got the stems for the bridge section?", timestamp: '11:02 AM' },
+//     { id: 'g2', sender: 'them', senderName: 'Priya Nair', senderInitials: 'PN', text: "I've got them — uploading to the shared drive now.", timestamp: '11:05 AM' },
+//     { id: 'g3', sender: 'me', text: "Nice, I'll start layering the pads once it's up.", timestamp: '11:07 AM', seen: true },
+//     { id: 'g4', sender: 'them', senderName: 'Elena Rodriguez', senderInitials: 'ER', text: 'Dropping the new mix in 10 mins 🔥', timestamp: '11:20 AM' },
+//     { id: 'g5', sender: 'them', senderName: 'Gopal Menon', senderInitials: 'GM', text: "Can't wait, let's do a listening session in the room after.", timestamp: '11:21 AM' },
+//   ],
+// }
 
-// Hardcoded for now — there's no contacts/groups RTK Query endpoint yet
-// (see [[05-state-data-layer]]); once one exists these become queries and
-// this data goes away.
 const RECENT_FORWARD_TARGETS = [
   { id: 'sarah', name: 'Sarah', initials: 'S', avatarColor: 'primary.main' },
   { id: 'marcus', name: 'Marcus', initials: 'M', avatarColor: 'text.disabled' },
@@ -36,12 +56,24 @@ const ALL_FORWARD_TARGETS = [
   { id: 'leo', name: 'Leo Rodriguez', subtitle: 'Recording...', initials: 'LR', avatarColor: 'error.main' },
 ]
 
-// Owns the active thread for whichever conversation ConversationsContainer
-// has selected — matches the "opening a thread is the messages domain's
-// job" split already noted in ConversationsContainer.
-const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMenuAction }) => {
-  const [messagesByConversation, setMessagesByConversation] = useState(SEED_MESSAGES)
+const MessagesContainer = ({ conversation, onConversationMenuAction, onToggleStarMessage, onMessageSent }) => {
+  const user = useSelector(selectUser)
+  const accessToken = useSelector(selectAccessToken)
+  const currentUserId = useSelector(selectCurrentUserId)
+
+  const { data: messagesApiData } = useGetMessagesQuery(
+    { conversationId: conversation.id },
+    { skip: !accessToken || !conversation.id },
+  )
+
+  const [sendMessageHttp] = useSendMessageHttpMutation()
+  const [markReadHttp] = useMarkConversationReadMutation()
+  const [toggleReactionHttp] = useToggleReactionMutation()
+  const [toggleStarHttp] = useToggleStarMessageMutation()
+
+  const [localMessages, setLocalMessages] = useState([])
   const [draft, setDraft] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
 
   const [forwardingMessage, setForwardingMessage] = useState(null)
   const [forwardSearch, setForwardSearch] = useState('')
@@ -51,32 +83,158 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
   const [activeEffect, setActiveEffect] = useState(null)
   const [isInfoOpen, setIsInfoOpen] = useState(false)
 
-  const messages = messagesByConversation[conversation.id] ?? []
+  const typingTimerRef = useRef(null)
 
-  // effectId is only set when the message was sent via the long-press
-  // "send with effect" menu (see ChatThreadPanel/SendEffectMenu) — a plain
-  // Enter/click send calls this with no argument. There's no backend/socket
-  // layer yet (see [[07-realtime-sockets]]), so there's no real recipient
-  // session to trigger playback for; the effect plays once, immediately, in
-  // the sender's own view.
-  const handleSend = (effectId) => {
+  // Mark conversation as read & join socket room on mount / opening thread
+  useEffect(() => {
+    if (conversation?.id) {
+      emitJoinConversation(conversation.id)
+      emitMarkRead(conversation.id)
+      if (accessToken) {
+        markReadHttp({ conversationId: conversation.id }).catch(() => { })
+      }
+    }
+  }, [conversation?.id, accessToken, markReadHttp])
+
+  // Sync API messages into local state
+  useEffect(() => {
+    const parsed = parseMessagesResponse(messagesApiData, currentUserId)
+    setLocalMessages(parsed || [])
+  }, [messagesApiData, currentUserId])
+
+  // Subscribe to real-time socket events
+  useEffect(() => {
+    const socket = getSocket()
+    if (!socket) return
+
+    const handleNewMessage = (msg) => {
+      if (msg.conversationId === conversation.id) {
+        const parsed = parseMessagesResponse({ data: [msg] }, currentUserId)
+        if (parsed.length > 0) {
+          setLocalMessages((prev) => {
+            if (prev.some((existing) => existing.id === parsed[0].id)) return prev
+            return [...prev, parsed[0]]
+          })
+        }
+      }
+    }
+
+    const handleMessageReacted = ({ messageId, conversationId, reactions }) => {
+      if (conversationId === conversation.id) {
+        const reactionEmojis = Array.isArray(reactions)
+          ? reactions.map((r) => (typeof r === 'string' ? r : r.emoji))
+          : []
+
+        setLocalMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId ? { ...msg, reactions: reactionEmojis } : msg,
+          ),
+        )
+      }
+    }
+
+    const handleUserTyping = ({ conversationId }) => {
+      if (conversationId === conversation.id) {
+        setIsTyping(true)
+      }
+    }
+
+    const handleUserStoppedTyping = ({ conversationId }) => {
+      if (conversationId === conversation.id) {
+        setIsTyping(false)
+      }
+    }
+
+    socket.on('new_message', handleNewMessage)
+    socket.on('message_reacted', handleMessageReacted)
+    socket.on('user_typing', handleUserTyping)
+    socket.on('user_stopped_typing', handleUserStoppedTyping)
+
+    return () => {
+      socket.off('new_message', handleNewMessage)
+      socket.off('message_reacted', handleMessageReacted)
+      socket.off('user_typing', handleUserTyping)
+      socket.off('user_stopped_typing', handleUserStoppedTyping)
+    }
+  }, [conversation.id, currentUserId])
+
+  // Typing indicator emission
+  const handleDraftChange = (newDraft) => {
+    setDraft(newDraft)
+
+    if (conversation?.id) {
+      emitTypingStart(conversation.id)
+
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = setTimeout(() => {
+        emitTypingStop(conversation.id)
+      }, 1500)
+    }
+  }
+
+  const handleSend = async (effectId) => {
     const text = draft.trim()
     if (!text) return
 
+    emitTypingStop(conversation.id)
+
+    const metadata = {}
+    if (replyingToMessage) {
+      metadata.replyToId = replyingToMessage.id
+      metadata.replyToText = replyingToMessage.text
+      metadata.replyToSender = replyingToMessage.sender === 'me' ? 'You' : conversation.name
+    }
+    if (effectId) {
+      metadata.effect = effectId
+      setActiveEffect(effectId)
+    }
+
+    const payload = {
+      conversationId: conversation.id,
+      content: text,
+      type: 'TEXT',
+      metadata,
+    }
+
+    // 1. Broadcast via WebSockets for instant peer delivery
+    emitSendMessage(payload)
+
+    // 2. Persist message to MongoDB database via HTTP REST endpoint
+    try {
+      await sendMessageHttp(payload).unwrap()
+      refetch()
+    } catch {
+      // Fallback
+    }
+
+    // Optimistic UI append
     const replyTo = replyingToMessage
       ? {
-          senderName: replyingToMessage.sender === 'me' ? 'You' : conversation.name,
-          text: replyingToMessage.text,
-        }
-      : undefined
+        senderName: replyingToMessage.sender === 'me' ? 'You' : conversation.name,
+        text: replyingToMessage.text,
+      }
+      : null
 
-    const newMessage = { id: `local-${Date.now()}`, sender: 'me', text, timestamp: 'Just now', seen: false, replyTo, effect: effectId }
-    setMessagesByConversation((prev) => ({
-      ...prev,
-      [conversation.id]: [...(prev[conversation.id] ?? []), newMessage],
-    }))
+    const optimisticMsg = {
+      id: `local-${Date.now()}`,
+      conversationId: conversation.id,
+      sender: 'me',
+      senderId: currentUserId,
+      text,
+      timestamp: 'Just now',
+      seen: false,
+      replyTo,
+      effect: effectId || null,
+      reactions: [],
+      isStarred: false,
+    }
+
+    setLocalMessages((prev) => {
+      if (prev.some((m) => m.text === text && m.timestamp === 'Just now')) return prev
+      return [...prev, optimisticMsg]
+    })
+    onMessageSent?.({ conversationId: conversation.id, text, timestamp: 'Just now' })
     setDraft('')
-    if (effectId) setActiveEffect(effectId)
     setReplyingToMessage(null)
   }
 
@@ -94,7 +252,9 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
   const handleCloseForward = () => setForwardingMessage(null)
 
   const handleToggleForwardTarget = (id) => {
-    setForwardSelectedIds((prev) => (prev.includes(id) ? prev.filter((existingId) => existingId !== id) : [...prev, id]))
+    setForwardSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((existingId) => existingId !== id) : [...prev, id],
+    )
   }
 
   const filteredForwardContacts = useMemo(() => {
@@ -104,7 +264,10 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
   }, [forwardSearch])
 
   const selectedForwardTargets = useMemo(
-    () => [...RECENT_FORWARD_TARGETS, ...ALL_FORWARD_TARGETS].filter((target) => forwardSelectedIds.includes(target.id)),
+    () =>
+      [...RECENT_FORWARD_TARGETS, ...ALL_FORWARD_TARGETS].filter((target) =>
+        forwardSelectedIds.includes(target.id),
+      ),
     [forwardSelectedIds],
   )
 
@@ -115,10 +278,12 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
   }
 
   const handleReactMessage = (message, emoji) => {
-    setMessagesByConversation((prev) => {
-      const list = prev[conversation.id] ?? []
-      const updated = list.map((msg) => {
-        if (msg.id === message.id) {
+    const messageId = message.id
+
+    // Optimistic UI update
+    setLocalMessages((prev) =>
+      prev.map((msg) => {
+        if (msg.id === messageId) {
           const currentReactions = msg.reactions || []
           const exists = currentReactions.includes(emoji)
           const newReactions = exists
@@ -127,27 +292,29 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
           return { ...msg, reactions: newReactions }
         }
         return msg
-      })
-      return {
-        ...prev,
-        [conversation.id]: updated,
+      }),
+    )
+
+    // Emit Socket reaction & HTTP fallback
+    emitReactMessage({ messageId, emoji }, (ack) => {
+      if (!ack?.success) {
+        toggleReactionHttp({ messageId, emoji }).catch(() => { })
       }
     })
   }
 
   const handleDeleteMessage = (message) => {
-    setMessagesByConversation((prev) => ({
-      ...prev,
-      [conversation.id]: (prev[conversation.id] ?? []).filter((existing) => existing.id !== message.id),
-    }))
+    setLocalMessages((prev) => prev.filter((msg) => msg.id !== message.id))
   }
 
   const handleToggleStarMessage = (message) => {
     const isStarred = !message.isStarred
-    setMessagesByConversation((prev) => ({
-      ...prev,
-      [conversation.id]: (prev[conversation.id] ?? []).map((msg) => (msg.id === message.id ? { ...msg, isStarred } : msg)),
-    }))
+    setLocalMessages((prev) =>
+      prev.map((msg) => (msg.id === message.id ? { ...msg, isStarred } : msg)),
+    )
+    if (message.id && !message.id.startsWith('local-')) {
+      toggleStarHttp({ messageId: message.id }).catch(() => { })
+    }
     onToggleStarMessage?.(conversation, { ...message, isStarred })
     toast.success(isStarred ? 'Message starred.' : 'Message unstarred.')
   }
@@ -173,14 +340,25 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
     handleNotImplemented(action)
   }
 
+  const activeConversationWithTyping = useMemo(
+    () => ({
+      ...conversation,
+      isTyping,
+    }),
+    [conversation, isTyping],
+  )
+
   return (
     <>
       <ChatThreadPanel
-        conversation={conversation}
+        activeEffect={activeEffect}
+        conversation={activeConversationWithTyping}
         draft={draft}
-        messages={messages}
+        messages={localMessages}
         onCall={() => handleNotImplemented('Voice call')}
-        onDraftChange={setDraft}
+        onCancelReply={() => setReplyingToMessage(null)}
+        onDraftChange={handleDraftChange}
+        onEffectComplete={handleEffectComplete}
         onForwardMessage={handleOpenForward}
         onInfo={() => setIsInfoOpen(true)}
         onMessageMenuAction={handleMessageMenuAction}
@@ -188,9 +366,6 @@ const MessagesContainer = ({ conversation, onToggleStarMessage, onConversationMe
         onSend={handleSend}
         onVideoCall={() => handleNotImplemented('Video call')}
         replyingToMessage={replyingToMessage}
-        onCancelReply={() => setReplyingToMessage(null)}
-        activeEffect={activeEffect}
-        onEffectComplete={handleEffectComplete}
       />
 
       <ContactInfoPanel

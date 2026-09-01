@@ -14,6 +14,10 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      '/messaging': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
   resolve: {
@@ -29,6 +33,7 @@ export default defineConfig({
       theme: path.resolve(rootDir, 'src/theme'),
       config: path.resolve(rootDir, 'src/config'),
       assets: path.resolve(rootDir, 'src/assets'),
+      services: path.resolve(rootDir, 'src/services'),
     },
   },
 })

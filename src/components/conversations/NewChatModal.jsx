@@ -26,25 +26,31 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { toast } from 'react-toastify'
 
-const CONTACTS = [
-  { id: 'c1', name: 'Abigail Chen', initials: 'AC', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMQcoRdDCh2n409lI-ESdt6xLmPJ7ENs4qiKau6JCnygM4iJT5L2VAlftmTw3P6s65Ml2Pv4mlIzImPYVrKjh6yZvrcjEbsIxH3bAjW3cR5105pH5Y9MnjMJjJDyqCO5eS6S22SUUm8-VyyhvEroPgFP-0xDPCG4P4DMJg26wUhEPWe7rTA6sem1aLgJ2C4vv7G37LcHFE1SQmFytwAIk21ZOxw1dMIo2ZIIsLMigw7Si_xn109FMsWg', status: "Listening to 'Midnight City'", isOnline: true },
-  { id: 'c2', name: 'Arthur Vance', initials: 'AV', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBbB7ylGL4mWjpA0m_vILKrSQduyxJVjazpuZrYu9MikoUcxyxA3gLyyKGoARVUWqY-jwjKls5r2ujw2EQUnEthbWTpXYTK-j_VSPpB2DBCdXgI79oKyXyW_Pzhx9joqzr792cP8NG6npu_3leQYA5Puo5Ir6c2ZIHzMzLIVHU5h81-dIe_XcrFVv0MPvlGHoanmPPa8Uw0ogfoKK9oT4QwwrQPG-wvGOjcAXccmVSZIX62oQBTf0p7jQ', status: "Hey there! I'm using Rhynk." },
-  { id: 'c3', name: 'Beatrix Potter', initials: 'BP', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBnFaBACn-_3A_lsMfbwrWbj1rG-EoeFcc-qs3wtEDldP50KbtfrrYcuk7xyi9WsclJy8TdtFUmDwpWiYkaKPM63CCxuXZ7SK_f-B6OV_IXvXJhFPbqe1w7ExYEnWFWSkeDY7IuowWh5kZqqmU2Qffnow4UYwAUySekNGEbkygdhn2muhSdndldo3msBBqqBb6Q9JQnRirvB4bxzATHkwyrjg43pM0BWFPMAC7jT_uZiEz4h9IGvEC37A', status: 'Digital storyteller & audiophile', isLive: true },
-  { id: 'c4', name: 'Brendan Fraser', initials: 'BF', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC2RIpii3TOLAiUqD3xk4vx2JtLwFZ2TcoG1CRSHKOPeogYclSDnaCc1tC28g5eMn19nSneb0g3U5GHQgOD5A52R2gt-odYkNw8GJSoWnskwlK2Cc9ygAaiXDT4ih4l5VqNsZtKEdrkYRLviWcmPMN-8nfMAkLuC_ynUsxr7eJdcfm_ng39_Lvpn_q4d7k1A6ZpIZt2uOygLWKyMWetBFCRQzwUpm3oaznb3NYrdQPFi7sN9Mcosr-RFA', status: 'Busy today' },
-  { id: 'c5', name: 'Catherine Zeta', initials: 'CZ', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDyZNkiLVrOnq8GLk6GzVk4ftIEuvhxwnd6GcBSzEMTrZbVwf4TOTRf_EaXXkc2d5PGBiPfnRvGAmlAh2WVWAU3HFjFJZJDKcduXq14ZddkRp2bitWCY_aeiqNuxL6QBResNQQCLGD8-_mRiwxUl1lrYDU1QpFTSe1WlWiOaLtnTel1uW0SM6xEeogWVZNpr9VWiR3O94-Q8z1Qu7VaeTLNMId2P7sPeGfBBneoRnfNw5LnGNjC7hoXOA', status: 'Designing the future of sound.' }
-]
+// Mock contacts data — commented out, kept for local testing/reference
+// const CONTACTS = [
+//   { id: 'c1', name: 'Abigail Chen', initials: 'AC', avatar: 'https://lh3.googleusercontent.com/aida-public/...', status: "Listening to 'Midnight City'", isOnline: true },
+//   { id: 'c2', name: 'Arthur Vance', initials: 'AV', avatar: 'https://lh3.googleusercontent.com/aida-public/...', status: "Hey there! I'm using Rhynk." },
+//   { id: 'c3', name: 'Beatrix Potter', initials: 'BP', avatar: 'https://lh3.googleusercontent.com/aida-public/...', status: 'Digital storyteller & audiophile', isLive: true },
+//   { id: 'c4', name: 'Brendan Fraser', initials: 'BF', avatar: 'https://lh3.googleusercontent.com/aida-public/...', status: 'Busy today' },
+//   { id: 'c5', name: 'Catherine Zeta', initials: 'CZ', avatar: 'https://lh3.googleusercontent.com/aida-public/...', status: 'Designing the future of sound.' }
+// ]
+const CONTACTS = []
 
 const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
-  const [mode, setMode] = useState('chat') // 'chat' | 'createGroup' | 'createMusicGroup'
+  const [mode, setMode] = useState('chat') // 'chat' | 'createGroup' | 'createMusicGroup' | 'addContact'
   const [searchQuery, setSearchQuery] = useState('')
   const [groupName, setGroupName] = useState('')
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
+  const [contactIdInput, setContactIdInput] = useState('')
+  const [contactNameInput, setContactNameInput] = useState('')
 
   const handleClose = () => {
     setMode('chat')
     setSearchQuery('')
     setGroupName('')
     setSelectedMemberIds([])
+    setContactIdInput('')
+    setContactNameInput('')
     onClose()
   }
 
@@ -54,16 +60,40 @@ const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
     )
   }
 
+  const handleStartDirectWithQuery = () => {
+    if (!searchQuery.trim()) {
+      toast.warning('Please enter a Username, Email, or User ID.')
+      return
+    }
+    onStartDirectChat({ recipient: searchQuery.trim(), name: searchQuery.trim() })
+    handleClose()
+  }
+
+  const handleAddContactSubmit = () => {
+    if (!contactIdInput.trim()) {
+      toast.warning('Please enter a Username, Email, or User ID.')
+      return
+    }
+    onStartDirectChat({
+      recipient: contactIdInput.trim(),
+      name: contactIdInput.trim(),
+    })
+    handleClose()
+  }
+
   const handleCreateGroupSubmit = () => {
     if (!groupName.trim()) {
       toast.warning('Please enter a group name.')
       return
     }
-    if (selectedMemberIds.length === 0) {
-      toast.warning('Please select at least one group member.')
+    if (selectedMemberIds.length === 0 && !searchQuery.trim()) {
+      toast.warning('Please select at least one member or enter member User IDs.')
       return
     }
-    const selectedMembers = CONTACTS.filter((c) => selectedMemberIds.includes(c.id))
+    const selectedMembers = selectedMemberIds.map((id) => ({ id, name: id }))
+    if (searchQuery.trim() && !selectedMemberIds.includes(searchQuery.trim())) {
+      selectedMembers.push({ id: searchQuery.trim(), name: searchQuery.trim() })
+    }
     onCreateGroup(groupName.trim(), selectedMembers, mode === 'createMusicGroup')
     handleClose()
   }
@@ -115,6 +145,7 @@ const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
             )}
             <Typography sx={{ fontWeight: 800, letterSpacing: '-0.02em' }} variant="h5">
               {mode === 'chat' && 'New chat'}
+              {mode === 'addContact' && 'Add contact'}
               {mode === 'createGroup' && 'New group'}
               {mode === 'createMusicGroup' && 'New Music Room group'}
             </Typography>
@@ -128,13 +159,23 @@ const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
           <TextField
             fullWidth
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search name or number"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleStartDirectWithQuery()
+            }}
+            placeholder="Enter Username, Email, or User ID..."
             size="small"
             value={searchQuery}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchIcon color="action" fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery.trim() && (
+                <InputAdornment position="end">
+                  <Button size="small" variant="contained" onClick={handleStartDirectWithQuery} sx={{ borderRadius: '8px', textTransform: 'none', py: 0.5 }}>
+                    Chat
+                  </Button>
                 </InputAdornment>
               ),
               sx: { borderRadius: '12px', bgcolor: (t) => alpha(t.palette.action.hover, 0.05) },
@@ -179,7 +220,7 @@ const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
               </ListItem>
 
               <ListItem disablePadding>
-                <ListItemButton onClick={() => toast.info('New contact registration not implemented yet.')} sx={{ borderRadius: '12px', gap: 2, py: 1.25 }}>
+                <ListItemButton onClick={() => setMode('addContact')} sx={{ borderRadius: '12px', gap: 2, py: 1.25 }}>
                   <Avatar sx={{ bgcolor: 'primary.main', width: 44, height: 44 }}>
                     <PersonAddIcon />
                   </Avatar>
@@ -257,6 +298,28 @@ const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
               ))}
             </Box>
           </Box>
+        ) : mode === 'addContact' ? (
+          /* Add Contact Form Mode - Single clean input box */
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              Enter the Username, Email, or User ID of the registered person you would like to connect with.
+            </Typography>
+            <TextField
+              fullWidth
+              autoFocus
+              label="Username, Email, or User ID *"
+              value={contactIdInput}
+              onChange={(e) => setContactIdInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddContactSubmit()
+              }}
+              placeholder="e.g. john_doe, john@gmail.com, or c6239129..."
+              size="small"
+              InputProps={{
+                sx: { borderRadius: '12px' },
+              }}
+            />
+          </Box>
         ) : (
           /* Group Creation Mode - Checkboxes list */
           <Box sx={{ p: 2 }}>
@@ -296,22 +359,35 @@ const NewChatModal = ({ open, onClose, onCreateGroup, onStartDirectChat }) => {
         )}
       </DialogContent>
 
-      {/* Footer section for Group Creation mode */}
+      {/* Footer section for non-chat modes */}
       {mode !== 'chat' && (
         <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', gap: 2, flexShrink: 0 }}>
           <Button fullWidth onClick={() => setMode('chat')} variant="outlined" sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 600 }}>
             Cancel
           </Button>
-          <Button
-            color="primary"
-            disabled={!groupName.trim() || selectedMemberIds.length === 0}
-            fullWidth
-            onClick={handleCreateGroupSubmit}
-            variant="contained"
-            sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 600 }}
-          >
-            Create
-          </Button>
+          {mode === 'addContact' ? (
+            <Button
+              color="primary"
+              disabled={!contactIdInput.trim()}
+              fullWidth
+              onClick={handleAddContactSubmit}
+              variant="contained"
+              sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 600 }}
+            >
+              Add & Start Chat
+            </Button>
+          ) : (
+            <Button
+              color="primary"
+              disabled={!groupName.trim() || (selectedMemberIds.length === 0 && !searchQuery.trim())}
+              fullWidth
+              onClick={handleCreateGroupSubmit}
+              variant="contained"
+              sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 600 }}
+            >
+              Create Group
+            </Button>
+          )}
         </Box>
       )}
     </Dialog>

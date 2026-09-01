@@ -232,7 +232,7 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
         sx={{
           display: 'flex',
           justifyContent: 'flex-end',
-          alignItems: 'center', // Vertically center emoji button with the bubble
+          alignItems: 'center',
           gap: 1.5,
           mb: hasReactions ? '12px' : '0px',
           width: '100%',
@@ -244,44 +244,65 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
           className="bubble-box"
           sx={{
             maxWidth: '70%',
-            px: isEmojiOnly ? 0 : 2.25,
-            py: isEmojiOnly ? 0 : 1.25,
+            width: 'fit-content',
+            px: isEmojiOnly ? 0 : 2,
+            py: isEmojiOnly ? 0 : 1,
             borderRadius: isEmojiOnly ? 0 : '16px',
             borderBottomRightRadius: 0,
             bgcolor: isEmojiOnly ? 'transparent' : 'custom.bubble.sent.background',
             color: isEmojiOnly ? 'text.primary' : 'custom.bubble.sent.text',
             position: 'relative',
             '&:hover .bubble-chevron': { opacity: 0.7 },
-            // Custom CSS tail for sent bubble
             '&::after': isEmojiOnly
               ? undefined
               : {
-                  content: '""',
-                  position: 'absolute',
-                  bottom: 0,
-                  right: -6,
-                  width: 6,
-                  height: 8,
-                  bgcolor: 'custom.bubble.sent.background',
-                  clipPath: 'polygon(0 0, 0 100%, 100% 100%)',
-                },
+                content: '""',
+                position: 'absolute',
+                bottom: 0,
+                right: -6,
+                width: 6,
+                height: 8,
+                bgcolor: 'custom.bubble.sent.background',
+                clipPath: 'polygon(0 0, 0 100%, 100% 100%)',
+              },
           }}
         >
           {bubbleHeader}
           {replyCard}
-          {messageContent}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-            <Typography color={isEmojiOnly ? 'text.secondary' : undefined} sx={{ opacity: isEmojiOnly ? 1 : 0.7, fontSize: '0.75rem' }} variant="caption">
-              {message.timestamp}
-            </Typography>
-            <DoneAllIcon
-              sx={{
-                fontSize: 14,
-                color: message.seen ? 'custom.accent' : isEmojiOnly ? 'text.secondary' : 'inherit',
-                opacity: message.seen || isEmojiOnly ? 1 : 0.7,
-              }}
-            />
-          </Box>
+          {isEmojiOnly ? (
+            <AnimatedEmojiMessage emoji={message.text.trim()} />
+          ) : (
+            <Box sx={{ display: 'flow-root', position: 'relative' }}>
+              <Typography variant="body1" sx={{ wordBreak: 'break-word', lineHeight: 1.4, display: 'inline' }}>
+                {message.text}
+              </Typography>
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'flex-end',
+                  gap: 0.4,
+                  float: 'right',
+                  ml: 1.5,
+                  mt: 2,
+                  fontSize: '0.65rem',
+                  lineHeight: 1,
+                  opacity: 0.8,
+                  verticalAlign: 'bottom',
+                  userSelect: 'none',
+                }}
+              >
+                <span>{message.timestamp}</span>
+                <DoneAllIcon
+                  sx={{
+                    fontSize: 13,
+                    color: message.seen ? 'custom.accent' : 'inherit',
+                    opacity: message.seen ? 1 : 0.85,
+                  }}
+                />
+              </Box>
+            </Box>
+          )}
           {reactionsElement}
         </Box>
         {menus}
@@ -292,54 +313,79 @@ const MessageBubble = ({ message, onForward, onReact, onMenuAction, conversation
   return (
     <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', gap: 1.5, mb: hasReactions ? '12px' : '0px' }}>
       <Avatar
+        src={message.senderAvatar}
         sx={{
           width: 28,
           height: 28,
-          fontSize: 12,
-          mb: hasReactions ? '32px' : '22px', // Align avatar bottom with bottom of bubble instead of timestamp
+          fontSize: 11,
+          fontWeight: 700,
+          mb: 0.5,
         }}
       >
         {message.senderInitials}
       </Avatar>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5, maxWidth: '70%', width: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', '&:hover .message-emoji-button': { opacity: 1 } }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5, maxWidth: '75%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, '&:hover .message-emoji-button': { opacity: 1 } }}>
           <Box
             className="bubble-box"
             sx={{
-              flex: 1,
-              px: isEmojiOnly ? 0 : 2.25,
-              py: isEmojiOnly ? 0 : 1.25,
+              width: 'fit-content',
+              px: isEmojiOnly ? 0 : 2,
+              py: isEmojiOnly ? 0 : 1,
               borderRadius: isEmojiOnly ? 0 : '16px',
               borderBottomLeftRadius: 0,
               bgcolor: isEmojiOnly ? 'transparent' : 'custom.bubble.received.background',
               color: isEmojiOnly ? 'text.primary' : 'custom.bubble.received.text',
               position: 'relative',
               '&:hover .bubble-chevron': { opacity: 0.7 },
-              // Custom CSS tail for received bubble
               '&::after': isEmojiOnly
                 ? undefined
                 : {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: 0,
-                    left: -6,
-                    width: 6,
-                    height: 8,
-                    bgcolor: 'custom.bubble.received.background',
-                    clipPath: 'polygon(100% 0, 0 100%, 100% 100%)',
-                  },
+                  content: '""',
+                  position: 'absolute',
+                  bottom: 0,
+                  left: -6,
+                  width: 6,
+                  height: 8,
+                  bgcolor: 'custom.bubble.received.background',
+                  clipPath: 'polygon(100% 0, 0 100%, 100% 100%)',
+                },
             }}
           >
             {bubbleHeader}
             {replyCard}
-            {messageContent}
+            {isEmojiOnly ? (
+              <AnimatedEmojiMessage emoji={message.text.trim()} />
+            ) : (
+              <Box sx={{ display: 'flow-root', position: 'relative' }}>
+                <Typography variant="body1" sx={{ wordBreak: 'break-word', lineHeight: 1.4, display: 'inline' }}>
+                  {message.text}
+                </Typography>
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'flex-end',
+                    float: 'right',
+                    ml: 2.5,
+                    mt: 3.5,
+                    mr: 1,
+                    fontSize: '0.65rem',
+                    lineHeight: 1,
+                    color: 'text.secondary',
+                    opacity: 0.75,
+                    verticalAlign: 'bottom',
+                    userSelect: 'none',
+                  }}
+                >
+                  {message.timestamp}
+                </Box>
+              </Box>
+            )}
             {reactionsElement}
           </Box>
           {emojiButton}
         </Box>
-        <Typography color="text.secondary" sx={{ fontSize: '0.75rem', pl: 0.5, mt: hasReactions ? '14px' : '4px' }} variant="caption">
-          {message.timestamp}
-        </Typography>
       </Box>
       {menus}
     </Box>
@@ -478,8 +524,12 @@ const ChatThreadPanel = ({
             <Typography sx={{ fontWeight: 700, lineHeight: 1.2 }} variant="body1">
               {conversation.name}
             </Typography>
-            <Typography color={conversation.isOnline ? 'success.main' : 'text.secondary'} sx={{ fontWeight: 500 }} variant="caption">
-              {conversation.isOnline ? 'online' : 'offline'}
+            <Typography
+              color={conversation.isTyping ? 'primary.main' : conversation.isOnline ? 'success.main' : 'text.secondary'}
+              sx={{ fontWeight: 500, fontStyle: conversation.isTyping ? 'italic' : 'normal' }}
+              variant="caption"
+            >
+              {conversation.isTyping ? 'typing...' : conversation.isOnline ? 'online' : 'offline'}
             </Typography>
           </Box>
         </Box>
